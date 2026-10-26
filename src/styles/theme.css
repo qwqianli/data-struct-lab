@@ -1,0 +1,91 @@
+:root {
+  --bg: #0d1117;
+  --panel: #131a24;
+  --panel-2: #172030;
+  --line: #23303f;
+  --line-soft: #1b2634;
+
+  --text-strong: #dbe6f5;
+  --text: #a9b8cc;
+  --text-dim: #66788f;
+
+  --accent: #4d9bff;
+  --accent-2: #b57cff;
+  --ok: #3ecf8e;
+  --warn: #ffb454;
+  --danger: #ff6b6b;
+
+  --cell-bg: #182233;
+  --cell-line: #2c3a52;
+  --cell-mid: #4a3212;
+  --cell-mid-line: #ffb454;
+  --cell-found: #12382a;
+  --cell-found-line: #3ecf8e;
+
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-strong);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease;
+}
+
+button:hover:not(:disabled) {
+  background: #1e2a3d;
+  border-color: #354a66;
+}
+
+button:disabled {
+  opacity: 0.36;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: #1b3b66;
+  border-color: #2f5f9e;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #22497c;
+}
+
+code {
+  font-family: var(--font-mono);
+  background: #1a2433;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.92em;
+  color: #bcd3ef;
+}

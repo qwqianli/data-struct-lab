@@ -1,0 +1,20 @@
+{
+  "name": "data-struct-lab",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "数据结构实验室 · LeetCode 精选训练题的可视化 + 手动操作",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "selftest": "node scripts/selftest.mjs"
+  },
+  "dependencies": {
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.10",
+    "vite": "^8.3.5"
+  }
+}

@@ -1,0 +1,20 @@
+node_modules/
+dist/
+tmp/
+.shots/
+.vite/
+*.local
+.DS_Store
+docs/dev/
+internal/
+
+# 环境与IDE
+.vscode/
+.idea/
+*.log
+Thumbs.db
+
+# 敏感配置
+.env
+.env.*
+!.env.example

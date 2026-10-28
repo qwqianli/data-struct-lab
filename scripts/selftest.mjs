@@ -1376,6 +1376,46 @@ check('[32.27] done 帧 clickable 清空；A 按 x 从左到右读真实格 = [1
     [1, 3, 2],
   )
 })
+check('[32.28] 修补单：边端点全部有限，A 恰 3 条边、B 恰 7 条（与组件同一条 layoutEdges 路径）', () => {
+  for (const [frames, n] of [
+    [t94a, 3],
+    [t94b, 7],
+  ]) {
+    const shapes = tg.layoutEdges(frames[0].cells, frames[0].edges, frames[0].levels)
+    assert.equal(shapes.length, n)
+    for (const s of shapes) {
+      assert.ok(Number.isFinite(s.x1), `${s.key} x1=NaN`)
+      assert.ok(Number.isFinite(s.x2), `${s.key} x2=NaN`)
+      assert.ok(Number.isFinite(s.y1), `${s.key} y1=NaN`)
+      assert.ok(Number.isFinite(s.y2), `${s.key} y2=NaN`)
+    }
+  }
+})
+check('[32.29] 修补单：A 的 s0→s2 x1=171/x2=227、s2→s5 x1=217/x2=194、空格边 s0→s1 x1=151/x2=95 无箭头', () => {
+  const byKey = new Map(
+    tg.layoutEdges(t94a[0].cells, t94a[0].edges, t94a[0].levels).map((s) => [s.key, s]),
+  )
+  const r02 = byKey.get('s0->s2')
+  assert.equal(r02.x1, 171) // 161 + 10（右孩子出边端口）
+  assert.equal(r02.x2, 227) // s2 中心
+  const r25 = byKey.get('s2->s5')
+  assert.equal(r25.x1, 217) // 227 − 10（左孩子出边端口）
+  assert.equal(r25.x2, 194) // s5 中心
+  const r01 = byKey.get('s0->s1')
+  assert.equal(r01.x1, 151) // 161 − 10
+  assert.equal(r01.x2, 95) // s1 空格中心
+  assert.equal(r01.nullish, true)
+  assert.equal(r01.arrow, null)
+})
+check('[32.30] 修补单：layoutCells 中心/左上换算 —— A 的 s0 cx=161/left=133/top=56、B 的 s7 cx=62/left=34', () => {
+  const a = new Map(tg.layoutCells(t94a[0].cells, t94a[0].levels).map((c) => [c.id, c]))
+  assert.equal(a.get('s0').cx, 161)
+  assert.equal(a.get('s0').left, 133) // 161 − 28
+  assert.equal(a.get('s0').top, 56)
+  const b = new Map(tg.layoutCells(t94b[0].cells, t94b[0].levels).map((c) => [c.id, c]))
+  assert.equal(b.get('s7').cx, 62)
+  assert.equal(b.get('s7').left, 34) // 62 − 28
+})
 
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

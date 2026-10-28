@@ -117,3 +117,58 @@ export function idxToDK(idx) {
   const d = Math.floor(Math.log2(idx + 1)) + 1
   return { d, k: idx - (2 ** (d - 1) - 1) }
 }
+
+/**
+ * 箭头三角：边长 8、尖在终点，朝向由出发端 → 到达端的方向决定。
+ * 与 ListCanvas 的 7px 同构，边长按本渲染器契约取 8。
+ */
+export function arrowPoints(tipX, tipY, dx, dy) {
+  const len = Math.hypot(dx, dy)
+  const ux = dx / len
+  const uy = dy / len
+  const px = -uy
+  const py = ux
+  const baseX = tipX - ux * ARROW_LEN
+  const baseY = tipY - uy * ARROW_LEN
+  return `${tipX},${tipY} ${baseX + px * 4},${baseY + py * 4} ${baseX - px * 4},${baseY - py * 4}`
+}
+
+/** 格子布局：x 一律从 slotX 取，left = 中心 − CELL_W/2。组件与断言共用这一条路径。 */
+export function layoutCells(cells, levels) {
+  return cells.map((c) => {
+    const cx = slotX(c.d, c.k, levels)
+    const top = slotY(c.d)
+    return { ...c, cx, cy: top + CELL_H / 2, left: cx - CELL_W / 2, top }
+  })
+}
+
+/**
+ * 边布局：端点全部由 slotX/slotY 现算，不读任何外部缓存的 x。
+ * 到达点 = 子格中心上方 6px（edgeEndY）；出边端口 = 父格中心 ∓ 10。
+ */
+export function layoutEdges(cells, edges, levels) {
+  const byId = new Map(cells.map((c) => [c.id, c]))
+  return edges
+    .map((e) => {
+      const from = byId.get(e.from)
+      const to = byId.get(e.to)
+      if (!from || !to) return null
+      const side = to.k === from.k * 2 ? 'L' : 'R'
+      const x1 = edgeStartX(slotX(from.d, from.k, levels), side)
+      const y1 = edgeStartY(from.d)
+      const x2 = slotX(to.d, to.k, levels) // 到达点 = 子格中心，不加半宽
+      const y2 = edgeEndY(to.d)
+      const nullish = e.kind === 'null' || to.empty === true
+      return {
+        key: `${e.from}->${e.to}`,
+        kind: e.kind,
+        nullish,
+        x1,
+        y1,
+        x2,
+        y2,
+        arrow: nullish ? null : arrowPoints(x2, y2, x2 - x1, y2 - y1),
+      }
+    })
+    .filter(Boolean)
+}

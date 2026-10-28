@@ -12,13 +12,11 @@ import {
   GUTTER_X,
   GUTTER_DY,
   LABEL_SIZE,
-  ARROW_LEN,
   clickableGate,
-  edgeEndY,
-  edgeStartX,
-  edgeStartY,
   hotzone,
   idxToDK,
+  layoutCells,
+  layoutEdges,
   scaleOf,
   slotX,
   slotY,
@@ -62,59 +60,18 @@ const scale = computed(() => scaleOf(props.levels, { noScale: props.noScale }))
 // 热区只作 data 属性留给调试与断言对照，不参与渲染
 const hotzonePx = computed(() => hotzone(props.levels, { noScale: props.noScale }))
 
+// 只用来按 id 查 d/k（tags 定位用）。cells 里没有坐标字段 —— 渲染位置一律走 layoutCells/layoutEdges，
+// 不许从这里取 .x（P9a-1 修补单的根因就是两条数据源：这里取过一次 .x，全是 NaN）
 const posById = computed(() => new Map(props.cells.map((c) => [c.id, c])))
 
 /** 格子定位：x 只由 (d, k, L) 决定，与帧内容无关 —— 同一数据集全程恒定。 */
-const placedCells = computed(() =>
-  props.cells.map((c) => {
-    const x = slotX(c.d, c.k, props.levels)
-    return { ...c, x, y: slotY(c.d), cx: x + CELL_W / 2, cy: slotY(c.d) + CELL_H / 2 }
-  }),
-)
+const placedCells = computed(() => layoutCells(props.cells, props.levels))
 
 /**
- * 箭头三角：边长 8、尖在终点，朝向由出发端 → 到达端的方向决定。
- * 与 ListCanvas 的 7px 同构，边长按本渲染器契约取 8。
+ * 边的几何（含箭头三角）：端点全部由 slotX/slotY 现算，实现在 tree-geom.layoutEdges，
+ * 与 selftest 共用同一条路径。指向空格的边不画箭头 —— ∅ 表示到此为止。
  */
-function arrowPoints(tipX, tipY, dx, dy) {
-  const len = Math.hypot(dx, dy)
-  const ux = dx / len
-  const uy = dy / len
-  const px = -uy
-  const py = ux
-  const baseX = tipX - ux * ARROW_LEN
-  const baseY = tipY - uy * ARROW_LEN
-  return `${tipX},${tipY} ${baseX + px * 4},${baseY + py * 4} ${baseX - px * 4},${baseY - py * 4}`
-}
-
-/**
- * 边的几何：从父格底边 (x_p ∓ 10, y_p + 44) 到子格上方 (x_c, y(d+1) − 6)。
- * 指向空格的边（kind 'null'）不画箭头 —— ∅ 表示到此为止，箭头会误导。
- * side 由孩子的 k 判断：k = 2k_p 是左孩子、2k_p+1 是右孩子。
- */
-const edgeShapes = computed(() =>
-  props.edges.map((e) => {
-    const from = posById.value.get(e.from)
-    const to = posById.value.get(e.to)
-    if (!from || !to) return null
-    const side = to.k === from.k * 2 ? 'L' : 'R'
-    const x1 = edgeStartX(from.x, side)
-    const y1 = edgeStartY(from.d)
-    const x2 = to.x + CELL_W / 2
-    const y2 = edgeEndY(to.d)
-    const nullish = e.kind === 'null' || to.empty
-    return {
-      key: `${e.from}->${e.to}`,
-      kind: e.kind,
-      nullish,
-      x1,
-      y1,
-      x2,
-      y2,
-      arrow: nullish ? null : arrowPoints(x2, y2, x2 - x1, y2 - y1),
-    }
-  }).filter(Boolean),
-)
+const edgeShapes = computed(() => layoutEdges(props.cells, props.edges, props.levels))
 
 /** 左 gutter 深度标签：d1..dL，text-anchor:end，y = y(d) + 26 */
 const depthLabels = computed(() => Array.from({ length: props.levels }, (_, i) => i + 1))
@@ -142,7 +99,7 @@ const tags = computed(() => {
   for (const [at, names] of byCell) {
     const pos = posById.value.get(at)
     if (!pos) continue
-    const x = slotX(pos.d, pos.k, props.levels) + CELL_W / 2
+    const x = slotX(pos.d, pos.k, props.levels) // slotX 语义就是格子中心，直接用
     names.forEach((name, k) => {
       placed.push({ name, x, y: slotY(pos.d) - 8 - k * 16 })
     })
@@ -199,7 +156,7 @@ function onClickCell(id) {
       v-for="c in placedCells"
       :key="c.id"
       :class="[...cellClass(c), ...clickable.includes(c.id) ? ['is-clickable'] : []]"
-      :style="{ transform: `translate(${c.x}px, ${c.y}px)` }"
+      :style="{ transform: `translate(${c.left}px, ${c.top}px)` }"
       @click="onClickCell(c.id)"
     >
       <rect :width="CELL_W" :height="CELL_H" :rx="CELL_RX" />

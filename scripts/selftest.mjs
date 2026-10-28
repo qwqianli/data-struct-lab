@@ -1163,5 +1163,219 @@ check('建组帧 value 从「1 个」起，链头在前（先存入的在上）'
   assert.equal(f[3].buckets[2][0].key, 'aet')
 })
 
+// —— [32] P9a-1：TreeCanvas 几何契约 + 94 二叉树的中序遍历 ——
+// 追加段：不改上面任何已有断言。渲染器纯函数从 src/core/tree-geom.js 直采（selftest 起不了 Vue）。
+import * as tg from '../src/core/tree-geom.js'
+import {
+  buildFrames as t94Build,
+  checkPick as t94Check,
+  FIXTURE_A as T94_A,
+  FIXTURE_B as T94_B,
+} from '../src/demos/tree/inorder-traversal/engine.js'
+
+console.log('\n[32] TreeCanvas 几何 + 94 中序遍历')
+
+check('[32.1] 槽位 x：x(L3,d3,k0)=62、x(L3,d3,k1)=128', () => {
+  assert.equal(tg.slotX(3, 0, 3), 62)
+  assert.equal(tg.slotX(3, 1, 3), 128)
+})
+check('[32.2] 槽位 x：x(L3,d1)=161、x(L4,d1)=293', () => {
+  assert.equal(tg.slotX(1, 0, 3), 161)
+  assert.equal(tg.slotX(1, 0, 4), 293)
+})
+check('[32.3] width(3)=322、width(4)=586、width(5)=1114', () => {
+  assert.equal(tg.treeWidth(3), 322)
+  assert.equal(tg.treeWidth(4), 586)
+  assert.equal(tg.treeWidth(5), 1114)
+})
+check('[32.4] height(4)=388', () => {
+  assert.equal(tg.treeHeight(4), 388)
+})
+check('[32.5] maxWidth(4)=860 且 scale≈1.47、maxWidth(3)=515', () => {
+  assert.equal(tg.treeMaxWidth(4), 860)
+  assert.ok(Math.abs(tg.scaleOf(4) - 1.47) < 0.01)
+  assert.equal(tg.treeMaxWidth(3), 515)
+})
+check('[32.6] noScale:true → maxWidth = width（586 / 322）', () => {
+  assert.equal(tg.treeMaxWidth(4, { noScale: true }), 586)
+  assert.equal(tg.treeMaxWidth(3, { noScale: true }), 322)
+})
+check('[32.7] 门控：clickable 外的 id 不 emit（纯函数，不起 Vue）', () => {
+  assert.equal(tg.clickableGate(['s0'], 's0'), true)
+  assert.equal(tg.clickableGate(['s0'], 's1'), false)
+  assert.equal(tg.clickableGate([], 's0'), false)
+})
+check('[32.8] 3.3 数字：出边 ±10、到达 y−6、gutter x=26', () => {
+  assert.equal(tg.OUT_DX, 10)
+  assert.equal(tg.edgeStartX(293, 'L'), 283)
+  assert.equal(tg.edgeStartX(293, 'R'), 303)
+  assert.equal(tg.edgeStartY(1), 100) // y(1)=56 + 格高 44
+  assert.equal(tg.ARRIVE_LIFT, 6)
+  assert.equal(tg.edgeEndY(4), tg.slotY(4) - 6)
+  assert.equal(tg.GUTTER_X, 26)
+  assert.equal(tg.GUTTER_DY, 26)
+})
+check('[32.9] 3.3 常量：箭头 8、双虚线口径、线宽 1.5/2、空格 opacity .6、层高 88、格 56×44', () => {
+  assert.equal(tg.ARROW_LEN, 8)
+  assert.equal(tg.DASH_EDGE, '4 3')
+  assert.equal(tg.DASH_CELL, '5 4')
+  assert.equal(tg.EDGE_W, 1.5)
+  assert.equal(tg.PATH_W, 2)
+  assert.equal(tg.EMPTY_OPACITY, 0.6)
+  assert.equal(tg.LEVEL_H, 88)
+  assert.equal(tg.CELL_W, 56)
+  assert.equal(tg.CELL_H, 44)
+})
+check('[32.10] 热区：L=4 ≈82px ✓ 上限、L=5 ≈43px ✗（深度硬锁的几何依据）', () => {
+  assert.ok(Math.abs(tg.hotzone(4) - 82) < 0.5)
+  assert.ok(Math.abs(tg.hotzone(5) - 43) < 0.5)
+})
+
+const t94a = t94Build({ nums: T94_A })
+const t94b = t94Build({ nums: T94_B })
+
+check('[32.11] ⑥ A 解析：真实格 s0=1/s2=2/s5=3，空格恰为 [s1]', () => {
+  const real = t94a[0].cells.filter((c) => !c.empty)
+  assert.deepEqual(
+    real.map((c) => c.id),
+    ['s0', 's2', 's5'],
+  )
+  assert.deepEqual(
+    real.map((c) => c.value),
+    [1, 2, 3],
+  )
+  assert.deepEqual(
+    t94a[0].cells.filter((c) => c.empty).map((c) => c.id),
+    ['s1'],
+  )
+})
+check('[32.12] ⑥⑨ B 解析：7 真实格 + 空格恰为 [s4]', () => {
+  const real = t94b[0].cells.filter((c) => !c.empty)
+  assert.deepEqual(
+    real.map((c) => c.id),
+    ['s0', 's1', 's2', 's3', 's5', 's6', 's7'],
+  )
+  assert.deepEqual(
+    real.map((c) => c.value),
+    [10, 5, 15, 3, 13, 18, 1],
+  )
+  assert.deepEqual(
+    t94b[0].cells.filter((c) => c.empty).map((c) => c.id),
+    ['s4'],
+  )
+})
+check('[32.13] ⑦ 空格只挂在真实父节点的缺失孩子上，且不在第 L 层', () => {
+  for (const frames of [t94a, t94b]) {
+    const f0 = frames[0]
+    const byId = new Map(f0.cells.map((c) => [c.id, c]))
+    for (const c of f0.cells.filter((x) => x.empty)) {
+      assert.ok(c.d < f0.levels, `${c.id} 落在第 L 层`)
+      const parent = byId.get(tg.slotId(c.d - 1, Math.floor(c.k / 2)))
+      assert.ok(parent && !parent.empty, `${c.id} 的父节点不是真实格`)
+    }
+  }
+})
+check('[32.22] ⑨ 槽号口径：3 必须在 s5（BFS 队列分配，不是堆下标填充）', () => {
+  const c3 = t94a[0].cells.find((c) => c.value === 3)
+  assert.equal(c3.id, 's5')
+  assert.equal(c3.d, 3)
+  assert.equal(c3.k, 2)
+})
+check('[32.14] ① A 全对 → 8 帧 + answer=[1,3,2] + done', () => {
+  const f = t94Build({ nums: T94_A, picks: ['s1', 's0', 's5', 's2'] })
+  assert.equal(f.length, 8)
+  assert.equal(f[7].done, true)
+  assert.deepEqual(f[7].seq, [1, 3, 2])
+})
+check('[32.15] ② B 全对 → 16 帧 + [1,3,5,10,13,15,18]', () => {
+  const f = t94Build({ nums: T94_B, picks: ['s7', 's3', 's1', 's4', 's0', 's5', 's2', 's6'] })
+  assert.equal(f.length, 16)
+  assert.equal(f[15].done, true)
+  assert.deepEqual(f[15].seq, [1, 3, 5, 10, 13, 15, 18])
+})
+check('[32.16] ③ B 开局点祖先 10 → 致命文案点名，且不产帧', () => {
+  const r = t94Check(t94b[0], 's0')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /10/)
+  assert.match(r.message, /左子树/)
+  assert.equal(t94Build({ nums: T94_B, picks: ['s0'] }).length, 1)
+})
+check('[32.17] ④ 点已输出的格 → 「已经在答案里了」', () => {
+  const f = t94Build({ nums: T94_B, picks: ['s7'] })
+  const r = t94Check(f[f.length - 1], 's7')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /已经在答案里了/)
+})
+check('[32.18] ⑤ 点不在 clickable 的格 → 静默跳过不产帧不报错', () => {
+  assert.equal(t94Build({ nums: T94_A, picks: ['s2'] }).length, 1)
+  const mix = t94Build({ nums: T94_A, picks: ['s2', 's1', 's0', 's5', 's2'] })
+  assert.equal(mix.length, 8) // 错的不产帧，后面的照常复放
+})
+check('[32.19] ⑥ [] → 1 帧 done:true', () => {
+  const f = t94Build({ nums: [] })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+})
+check('[32.20] ⑩ 真 5 层数据被拒收：1 帧 done + 「只支持 4 层以内（当前 5 层）」', () => {
+  const f = t94Build({ nums: [10, 5, 15, 3, 7, 13, 18, 1, 2, 4, 6, 8, 9, 11, 12, 13] })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+  assert.match(f[0].caption, /只支持 4 层以内（当前 5 层）/)
+})
+check('[32.21] ⑧ A 的 s1 轮与 B 的 s4 轮 clickable 写死比对', () => {
+  assert.deepEqual(t94a[0].clickable, ['s1']) // A 开局：先确认 1 的左孩子槽
+  const a1 = t94Build({ nums: T94_A, picks: ['s1'] })
+  assert.deepEqual(a1[a1.length - 1].clickable, ['s0']) // s1 ∅ 轮之后：访问 1
+  const b3 = t94Build({ nums: T94_B, picks: ['s7', 's3', 's1'] })
+  assert.deepEqual(b3[b3.length - 1].clickable, ['s4']) // 5 访问完 → 轮到确认右孩子槽
+  const b4 = t94Build({ nums: T94_B, picks: ['s7', 's3', 's1', 's4'] })
+  assert.deepEqual(b4[b4.length - 1].clickable, ['s0']) // s4 ∅ 轮之后：访问 10
+})
+check('[32.23] 路径线：s5 轮的 ① 帧 s0→s2、s2→s5 转 path，空格边保持 null', () => {
+  const f = t94Build({ nums: T94_A, picks: ['s1', 's0', 's5'] })
+  const edges = f[4].edges
+  assert.equal(edges.find((e) => e.from === 's0' && e.to === 's2').kind, 'path')
+  assert.equal(edges.find((e) => e.from === 's2' && e.to === 's5').kind, 'path')
+  assert.equal(edges.find((e) => e.to === 's1').kind, 'null')
+  assert.equal(edges.length, 3) // s6 在第 L 层不画，边也只有 3 条
+})
+check('[32.24] 栈：B 的 s7 轮 = 10/5/3/1（#0/#1/#3/#7），s4 轮 = 10/5', () => {
+  const f = t94Build({ nums: T94_B, picks: ['s7'] })
+  assert.deepEqual(
+    f[1].stack.map((s) => `${s.value}@${s.sub}`),
+    ['10@#0', '5@#1', '3@#3', '1@#7'],
+  )
+  const g = t94Build({ nums: T94_B, picks: ['s7', 's3', 's1', 's4'] })
+  assert.deepEqual(
+    g[7].stack.map((s) => `${s.value}@${s.sub}`),
+    ['10@#0', '5@#1'],
+  )
+})
+check('[32.25] 序列输出面：新下标标 ok（seqMark）', () => {
+  const f = t94Build({ nums: T94_A, picks: ['s1', 's0'] })
+  assert.equal(f[3].seqMark, 0)
+  assert.deepEqual(f[3].seq, [1])
+  assert.equal(f[2].seqMark, null) // ① 帧还没有新值
+})
+check('[32.26] marks：① 帧 picked=active、已输出=ok；∅ 轮只亮自己', () => {
+  const f = t94Build({ nums: T94_A, picks: ['s1', 's0', 's5'] })
+  assert.equal(f[4].marks.s5, 'active')
+  assert.equal(f[4].marks.s0, 'ok')
+  assert.equal(f[1].marks.s1, 'active')
+  assert.equal(f[1].marks.s0, undefined)
+})
+check('[32.27] done 帧 clickable 清空；A 按 x 从左到右读真实格 = [1,3,2]（题眼）', () => {
+  const f = t94Build({ nums: T94_A, picks: ['s1', 's0', 's5', 's2'] })
+  assert.deepEqual(f[7].clickable, [])
+  const xs = t94a[0].cells
+    .filter((c) => !c.empty)
+    .map((c) => ({ v: c.value, x: tg.slotX(c.d, c.k, t94a[0].levels) }))
+    .sort((p, q) => p.x - q.x)
+  assert.deepEqual(
+    xs.map((p) => p.v),
+    [1, 3, 2],
+  )
+})
+
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

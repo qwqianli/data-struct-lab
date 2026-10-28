@@ -9,6 +9,7 @@ import SlidingWindowMaxDemo from '../demos/queue/sliding-window-max/Demo.vue'
 import TwoSumDemo from '../demos/hash/two-sum/Demo.vue'
 import LongestConsecutiveDemo from '../demos/hash/longest-consecutive/Demo.vue'
 import GroupAnagramsDemo from '../demos/hash/group-anagrams/Demo.vue'
+import InorderTraversalDemo from '../demos/tree/inorder-traversal/Demo.vue'
 
 /**
  * 演示注册表 —— 全部 22 个演示的唯一事实来源。
@@ -503,7 +504,38 @@ export const CATEGORIES = [
         slug: 'binary-tree-inorder-traversal',
         difficulty: '易',
         blurb: '左 → 根 → 右，递归与显式栈的对照',
-        status: 'planned',
+        status: 'ready',
+        component: InorderTraversalDemo,
+        related: [
+          {
+            no: 101,
+            slug: 'symmetric-tree',
+            title: '对称二叉树',
+            difficulty: '易',
+            why: '判断镜像要比两棵子树的对边，不是同一棵的父子',
+          },
+          {
+            no: 226,
+            slug: 'invert-binary-tree',
+            title: '翻转二叉树',
+            difficulty: '易',
+            why: '左右孩子互换，中序序列当场反过来',
+          },
+          {
+            no: 103,
+            slug: 'binary-tree-zigzag-level-order-traversal',
+            title: '二叉树的锯齿形层序遍历',
+            difficulty: '中',
+            why: '同一批节点，输出顺序随深度奇偶翻转',
+          },
+          {
+            no: 199,
+            slug: 'binary-tree-right-side-view',
+            title: '二叉树的右视图',
+            difficulty: '中',
+            why: '每层只留最右一个，是遍历口径的收窄',
+          },
+        ],
       },
       {
         id: 'level-order',

@@ -1661,5 +1661,162 @@ check('[34.12] 帧结构：cur/back 指针、marks 流转、ask 帧带「不进�
   assert.deepEqual(fb[12].marks.s2, 'active') // 第二个空格轮（1 的右）
 })
 
+// —— [35] P9a-4：98 验证二叉搜索树（range 横条的第一个真正用户）——
+import {
+  buildFrames as t98Build,
+  checkPick as t98Check,
+  FIXTURE_A as T98_A,
+  FIXTURE_B as T98_B,
+  FIXTURE_C as T98_C,
+} from '../src/demos/tree/validate-bst/engine.js'
+
+console.log('\n[35] 98 验证二叉搜索树')
+
+const t98a = t98Build({ nums: T98_A })
+const t98b = t98Build({ nums: T98_B })
+const t98c = t98Build({ nums: T98_C })
+const t98aFull = ['s1', 'bound-update', 's0', 'bound-update', 's2', 'bound-update']
+const t98bFull = ['s1', 'bound-update', 's0', 'bound-update', 's5', 'bound-update', 's2', 'bound-update', 's6', 'bound-update']
+const t98cFull = ['s3', 'bound-update', 's1', 'bound-update', 's4', 'bound-update', 's0', 'bound-update', 's2']
+
+check('[35.1] ① A 全对 → 10 帧、answer === true', () => {
+  const f = t98Build({ nums: T98_A, picks: t98aFull })
+  assert.equal(f.length, 10)
+  assert.equal(f[9].done, true)
+  assert.equal(f[9].answer, true)
+  assert.deepEqual(f[9].seq, [1, 2, 3])
+})
+check('[35.2] ② B 全对 → 16 帧、false，违规帧 caption 含节点 3 与界 5', () => {
+  const f = t98Build({ nums: T98_B, picks: t98bFull })
+  assert.equal(f.length, 16)
+  assert.equal(f[15].answer, false)
+  assert.match(f[8].caption, /3（s5）/) // 违规节点
+  assert.match(f[8].caption, /5（s0）/) // 传下界的祖先
+  assert.match(f[8].caption, /下界/)
+})
+check('[35.3] ③ C 全对 → 14 帧、false，违规帧 caption 含节点 7 与界 5', () => {
+  const f = t98Build({ nums: T98_C, picks: t98cFull })
+  assert.equal(f.length, 14)
+  assert.equal(f[13].answer, false)
+  assert.match(f[8].caption, /7（s4）/)
+  assert.match(f[8].caption, /越过祖先 5（s0）传下来的上界/)
+})
+check('[35.4] ④ C 点 bound-inherit → 后续必判成 true（父子比较的漏网，sticky）', () => {
+  const at7 = t98Build({
+    nums: T98_C,
+    picks: ['s3', 'bound-update', 's1', 'bound-update', 's4', 'bound-inherit', 's0', 'bound-update', 's2'],
+  })
+  assert.equal(at7.length, 14)
+  assert.equal(at7[13].answer, true) // 7 只和父节点 4 比 → 漏网
+  const fromStart = t98Build({
+    nums: T98_C,
+    picks: ['s3', 'bound-inherit', 's1', 'bound-update', 's4', 'bound-update', 's0', 'bound-update', 's2'],
+  })
+  assert.equal(fromStart[13].answer, true) // sticky：第一个 inherit 之后全部退化为父子比较
+})
+check('[35.5] ⑤ C 空格 s2 轮点实格 → 点名反馈、不产帧', () => {
+  const base = ['s3', 'bound-update', 's1', 'bound-update', 's4', 'bound-update', 's0', 'bound-update']
+  const h = t98Build({ nums: T98_C, picks: base })
+  assert.equal(h.length, 13) // f12 = 5 判完，轮到空格 s2
+  assert.deepEqual(h[12].clickable, ['s2'])
+  const r = t98Check(h[12], 's0')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /空格轮/)
+  assert.match(r.message, /s2/)
+  assert.equal(t98Build({ nums: T98_C, picks: [...base, 's0'] }).length, 13)
+})
+check('[35.6] ⑥ [] → 1 帧 done + true（空树合法）', () => {
+  const f = t98Build({ nums: [] })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+  assert.equal(f[0].answer, true)
+})
+check('[35.7] ⑦ 中序严格递增 ⟺ 合法（A 递增且 true；B、C 各一处不递增且 false）', () => {
+  const fa = t98Build({ nums: T98_A, picks: t98aFull })
+  const fb = t98Build({ nums: T98_B, picks: t98bFull })
+  const fc = t98Build({ nums: T98_C, picks: t98cFull })
+  const drops = (f) => {
+    let n = 0
+    for (let i = 1; i < f.seq.length; i += 1) if (f.seq[i] <= f.seq[i - 1]) n += 1
+    return n
+  }
+  assert.equal(drops(fa[9]), 0)
+  assert.equal(fa[9].answer, true)
+  assert.equal(drops(fb[15]), 1) // 1,5,3,4,6 的 5→3
+  assert.equal(fb[15].answer, false)
+  assert.equal(drops(fc[13]), 1) // 3,4,7,5 的 7→5
+  assert.equal(fc[13].answer, false)
+})
+check('[35.8] ⑧ range 的 lo/hi 写死比对（三组各一次：格 id，不是坐标）', () => {
+  const fa = t98Build({ nums: T98_A, picks: ['s1', 'bound-update'] })
+  assert.deepEqual(fa[2].range, { lo: 's1', hi: 's0' }) // 1 的区间 (−∞, 2)：−∞ → 最左格 s1
+  const fb = t98Build({ nums: T98_B, picks: ['s1', 'bound-update', 's0', 'bound-update', 's5', 'bound-update'] })
+  assert.deepEqual(fb[8].range, { lo: 's0', hi: 's2' }) // 3 的区间 (5, 4)：空区间也照画
+  const fc = t98Build({ nums: T98_C, picks: ['s3', 'bound-update', 's1', 'bound-update', 's4', 'bound-update'] })
+  assert.deepEqual(fc[8].range, { lo: 's1', hi: 's0' }) // 7 的区间 (4, 5)：题眼帧
+})
+check('[35.9] ⑨ 点不在 clickable 的格 / 时机不对的 bound → 不产帧不报错', () => {
+  assert.equal(t98Build({ nums: T98_A, picks: ['s2'] }).length, 1)
+  assert.equal(t98Build({ nums: T98_A, picks: ['s1', 's2'] }).length, 2) // ask 阶段点格 = 跳过
+  assert.equal(t98Build({ nums: T98_A, picks: ['s1', 'bound-update', 'bound-inherit'] }).length, 4) // 格子决策阶段答 bound = 跳过
+})
+check('[35.10] ⑩ 真 5 层数组 → 1 帧 done + 「只支持 4 层以内」', () => {
+  const f = t98Build({ nums: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+  assert.match(f[0].caption, /只支持 4 层以内（当前 5 层）/)
+})
+check('[35.11] ⑪ 空格列表：A = []、B = []、C = [s2]（锁「第 L 层不画」）', () => {
+  for (const [frames, want] of [
+    [t98a, []],
+    [t98b, []],
+    [t98c, ['s2']],
+  ]) {
+    assert.deepEqual(
+      frames[0].cells.filter((c) => c.empty).map((c) => c.id),
+      want,
+    )
+  }
+})
+check('[35.12] ⑫ 集成断言：layoutEdges 实算三组，端点全有限；A 2 条、B 4 条、C 3 条', () => {
+  for (const [frames, n] of [
+    [t98a, 2],
+    [t98b, 4],
+    [t98c, 3],
+  ]) {
+    const shapes = tg.layoutEdges(frames[0].cells, frames[0].edges, frames[0].levels)
+    assert.equal(shapes.length, n)
+    for (const s of shapes) {
+      assert.ok(Number.isFinite(s.x1), `${s.key} x1=NaN`)
+      assert.ok(Number.isFinite(s.x2), `${s.key} x2=NaN`)
+      assert.ok(Number.isFinite(s.y1), `${s.key} y1=NaN`)
+      assert.ok(Number.isFinite(s.y2), `${s.key} y2=NaN`)
+    }
+  }
+})
+check('[35.13] ask 选项轮转（照 reverse-list 的 makeAsk(round)）：C 的前三问顺序写死', () => {
+  const f = t98Build({ nums: T98_C, picks: ['s3', 'bound-update', 's1', 'bound-update', 's4'] })
+  assert.deepEqual(
+    f[1].ask.options.map((o) => o.pick),
+    ['bound-update', 'bound-inherit'],
+  )
+  assert.deepEqual(
+    f[4].ask.options.map((o) => o.pick),
+    ['bound-inherit', 'bound-update'],
+  )
+  assert.deepEqual(
+    f[7].ask.options.map((o) => o.pick),
+    ['bound-update', 'bound-inherit'],
+  )
+})
+check('[35.14] 路径全对但边界选错 → ok:false，文案点名「退化成父子比较、C 组就会漏」', () => {
+  const f = t98Build({ nums: T98_C, picks: ['s3'] })
+  const r = t98Check(f[1], 'bound-inherit')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /路径没错/)
+  assert.match(r.message, /退化成父子比较/)
+  assert.match(r.message, /C 组就会漏/)
+})
+
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

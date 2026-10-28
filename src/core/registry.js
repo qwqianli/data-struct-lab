@@ -12,6 +12,7 @@ import GroupAnagramsDemo from '../demos/hash/group-anagrams/Demo.vue'
 import InorderTraversalDemo from '../demos/tree/inorder-traversal/Demo.vue'
 import LevelOrderDemo from '../demos/tree/level-order/Demo.vue'
 import MaxDepthDemo from '../demos/tree/max-depth/Demo.vue'
+import ValidateBstDemo from '../demos/tree/validate-bst/Demo.vue'
 
 /**
  * 演示注册表 —— 全部 22 个演示的唯一事实来源。
@@ -626,7 +627,38 @@ export const CATEGORIES = [
         slug: 'validate-binary-search-tree',
         difficulty: '中',
         blurb: '只比较父子节点是不够的，要传上下界',
-        status: 'planned',
+        status: 'ready',
+        component: ValidateBstDemo,
+        related: [
+          {
+            no: 101,
+            slug: 'symmetric-tree',
+            title: '对称二叉树',
+            difficulty: '易',
+            why: '比较对象换成两棵子树的镜像对',
+          },
+          {
+            no: 112,
+            slug: 'path-sum',
+            title: '路径总和',
+            difficulty: '易',
+            why: '沿路累计的判据换成和',
+          },
+          {
+            no: 236,
+            slug: 'lowest-common-ancestor-of-a-binary-tree',
+            title: '二叉树的最近公共祖先',
+            difficulty: '中',
+            why: '回溯返回的是分叉点',
+          },
+          {
+            no: 543,
+            slug: 'diameter-of-binary-tree',
+            title: '二叉树的直径',
+            difficulty: '易',
+            why: '同样要传一个随路径变化的量',
+          },
+        ],
       },
     ],
   },

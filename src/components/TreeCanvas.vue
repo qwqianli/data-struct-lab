@@ -14,9 +14,9 @@ import {
   LABEL_SIZE,
   clickableGate,
   hotzone,
-  idxToDK,
   layoutCells,
   layoutEdges,
+  rangeBarRect,
   scaleOf,
   slotX,
   slotY,
@@ -76,16 +76,8 @@ const edgeShapes = computed(() => layoutEdges(props.cells, props.edges, props.le
 /** 左 gutter 深度标签：d1..dL，text-anchor:end，y = y(d) + 26 */
 const depthLabels = computed(() => Array.from({ length: props.levels }, (_, i) => i + 1))
 
-/** range 横条：x 从 x(lo) − 28 到 x(hi) + 28，y = height − 20，高 4px */
-const rangeBar = computed(() => {
-  if (!props.range) return null
-  const lo = idxToDK(props.range.lo)
-  const hi = idxToDK(props.range.hi)
-  return {
-    x1: slotX(lo.d, lo.k, props.levels) - 28,
-    x2: slotX(hi.d, hi.k, props.levels) + 28,
-  }
-})
+/** range 横条：矩形算式在 tree-geom.rangeBarRect —— 与 selftest 同一条路径，谁改坏谁红 */
+const rangeBar = computed(() => rangeBarRect(props.range, props.levels))
 
 /** 落在格子上的指针标签（画在格子上方）；悬空的收进左下角一行 */
 const tags = computed(() => {

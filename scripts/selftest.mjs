@@ -1817,6 +1817,27 @@ check('[35.14] 路径全对但边界选错 → ok:false，文案点名「退化�
   assert.match(r.message, /退化成父子比较/)
   assert.match(r.message, /C 组就会漏/)
 })
+check('[35.15] 修补单：idToIdx 往返 —— slotId ∘ idxToDK ∘ idToIdx 对 s0…s14 回到自身', () => {
+  assert.equal(tg.idToIdx('s7'), 7)
+  assert.equal(tg.idToIdx('s14'), 14)
+  for (let i = 0; i <= 14; i += 1) {
+    const id = `s${i}`
+    const { d, k } = tg.idxToDK(tg.idToIdx(id))
+    assert.equal(tg.slotId(d, k), id)
+  }
+})
+check('[35.16] 修补单：rangeBarRect 三组坐标有限且有序（直接调组件同款函数，不再重写算式）', () => {
+  for (const [r, L] of [
+    [{ lo: 's0', hi: 's2' }, 2],
+    [{ lo: 's2', hi: 's6' }, 3],
+    [{ lo: 's0', hi: 's2' }, 3],
+  ]) {
+    const g = tg.rangeBarRect(r, L)
+    assert.ok(Number.isFinite(g.x1) && Number.isFinite(g.x2), 'x 必须是有限数')
+    assert.ok(g.x1 < g.x2, 'x1 必须小于 x2')
+  }
+  assert.equal(tg.rangeBarRect(null, 3), null)
+})
 
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

@@ -118,6 +118,25 @@ export function idxToDK(idx) {
   return { d, k: idx - (2 ** (d - 1) - 1) }
 }
 
+/** 格子 id → 堆下标：'s7' → 7。id 与下标是双射（slotId/slotIdx 的逆）。 */
+export function idToIdx(id) {
+  return Number(String(id).replace(/^s/, ''))
+}
+
+/**
+ * range 横条的矩形：lo/hi 是**格子 id**，返回 { x1, x2 }（左端 → 右端）。
+ * 组件与 selftest 共用这一条路径 —— 谁改坏 id→下标 的转换，断言立刻红。
+ */
+export function rangeBarRect(range, levels) {
+  if (!range) return null
+  const lo = idxToDK(idToIdx(range.lo))
+  const hi = idxToDK(idToIdx(range.hi))
+  return {
+    x1: slotX(lo.d, lo.k, levels) - 28,
+    x2: slotX(hi.d, hi.k, levels) + 28,
+  }
+}
+
 /**
  * 箭头三角：边长 8、尖在终点，朝向由出发端 → 到达端的方向决定。
  * 与 ListCanvas 的 7px 同构，边长按本渲染器契约取 8。

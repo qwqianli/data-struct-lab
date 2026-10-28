@@ -11,6 +11,7 @@ import LongestConsecutiveDemo from '../demos/hash/longest-consecutive/Demo.vue'
 import GroupAnagramsDemo from '../demos/hash/group-anagrams/Demo.vue'
 import InorderTraversalDemo from '../demos/tree/inorder-traversal/Demo.vue'
 import LevelOrderDemo from '../demos/tree/level-order/Demo.vue'
+import MaxDepthDemo from '../demos/tree/max-depth/Demo.vue'
 
 /**
  * 演示注册表 —— 全部 22 个演示的唯一事实来源。
@@ -585,7 +586,38 @@ export const CATEGORIES = [
         slug: 'maximum-depth-of-binary-tree',
         difficulty: '易',
         blurb: '递归的回溯过程长什么样',
-        status: 'planned',
+        status: 'ready',
+        component: MaxDepthDemo,
+        related: [
+          {
+            no: 111,
+            slug: 'minimum-depth-of-binary-tree',
+            title: '二叉树的最小深度',
+            difficulty: '易',
+            why: '叶判定：一边为空不算最小',
+          },
+          {
+            no: 110,
+            slug: 'balanced-binary-tree',
+            title: '平衡二叉树',
+            difficulty: '易',
+            why: '回溯要么返回深度、要么 -1 短路',
+          },
+          {
+            no: 543,
+            slug: 'diameter-of-binary-tree',
+            title: '二叉树的直径',
+            difficulty: '易',
+            why: '回溯带上去的不是深度是路径长',
+          },
+          {
+            no: 226,
+            slug: 'invert-binary-tree',
+            title: '翻转二叉树',
+            difficulty: '易',
+            why: '同一趟 DFS，改的是形状不是数值',
+          },
+        ],
       },
       {
         id: 'validate-bst',

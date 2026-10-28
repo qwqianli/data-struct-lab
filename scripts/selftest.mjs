@@ -1534,5 +1534,132 @@ check('[33.12] 逐帧口径：出队高亮在前（f1 已追加 seq=[3]）、层
   assert.deepEqual(f[3].pointers, [{ name: 'd2', at: 1 }]) // 9 出队那一刻层界才落下
 })
 
+// —— [34] P9a-3：104 二叉树的最大深度（第三种交互：回溯值预测）——
+import {
+  buildFrames as t104Build,
+  checkPick as t104Check,
+  FIXTURE_A as T104_A,
+  FIXTURE_B as T104_B,
+} from '../src/demos/tree/max-depth/engine.js'
+
+console.log('\n[34] 104 最大深度')
+
+const t104a = t104Build({ nums: T104_A })
+const t104b = t104Build({ nums: T104_B })
+const t104aFull = ['s0', 's1', 'guess-1', 's2', 's5', 'guess-1', 's6', 'guess-1', 'guess-2', 'guess-3']
+const t104bFull = ['s0', 's1', 's3', 's7', 'guess-1', 'guess-2', 's4', 'guess-3', 's2', 'guess-4']
+
+check('[34.1] ① A 全对 → 16 帧、答案 3、done', () => {
+  const f = t104Build({ nums: T104_A, picks: t104aFull })
+  assert.equal(f.length, 16)
+  assert.equal(f[15].done, true)
+  assert.equal(f[15].depth, 3)
+  assert.deepEqual(f[15].answer, [1, 1, 1, 2, 3])
+})
+check('[34.2] ② B 全对 → 15 帧、答案 4', () => {
+  const f = t104Build({ nums: T104_B, picks: t104bFull })
+  assert.equal(f.length, 15)
+  assert.equal(f[14].done, true)
+  assert.equal(f[14].depth, 4)
+  assert.deepEqual(f[14].answer, [1, 2, 3, 4])
+})
+check('[34.3] ③ 只走对路径、预测错 → ok:false「路径没错」且不产帧', () => {
+  const g = t104Build({ nums: T104_A, picks: ['s0', 's1'] })
+  assert.equal(g.length, 4) // f3 = 9 的 ask 帧
+  const r = t104Check(g[3], 'guess-0')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /路径没错/)
+  assert.match(r.message, /9（s1）/)
+  assert.equal(t104Build({ nums: T104_A, picks: ['s0', 's1', 'guess-0'] }).length, 4) // 错的 guess 不产帧
+})
+check('[34.4] ④ B 空格轮点实格 → 点名反馈、不产帧', () => {
+  const h = t104Build({ nums: T104_B, picks: ['s0', 's1', 's3', 's7', 'guess-1', 'guess-2'] })
+  assert.equal(h.length, 9) // f8 = 3 合并完，轮到空格 s4
+  assert.deepEqual(h[8].clickable, ['s4'])
+  const r = t104Check(h[8], 's0')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /空格轮/)
+  assert.match(r.message, /s4/)
+  assert.equal(t104Build({ nums: T104_B, picks: [...['s0', 's1', 's3', 's7', 'guess-1', 'guess-2'], 's0'] }).length, 9)
+})
+check('[34.5] ⑤ 空格轮点空格 → 空格事件本身恰 1 帧（f9），跟车的 f10 是父节点 ask', () => {
+  const base = ['s0', 's1', 's3', 's7', 'guess-1', 'guess-2']
+  const f = t104Build({ nums: T104_B, picks: [...base, 's4'] })
+  assert.equal(f.length, 11) // 9 + 空格 1 帧（f9）+ s1 的 ask 跟车 1 帧（f10，计入 s1 的 3 帧之二）
+  assert.equal(f[9].marks.s4, 'active')
+  assert.match(f[9].caption, /返回 0/)
+  assert.ok(f[10].ask !== null) // 跟车的是 s1 的提问
+  assert.equal(f[10].ask.cellId, 's1')
+})
+check('[34.6] ⑥ 点不在 clickable 的格 → 不产帧不报错', () => {
+  assert.equal(t104Build({ nums: T104_A, picks: ['s6'] }).length, 1)
+  assert.equal(t104Build({ nums: T104_A, picks: ['s0', 's2'] }).length, 2) // s2 在 s0① 时还轮不到
+})
+check('[34.7] ⑦ [] → 1 帧 done + 答案 0', () => {
+  const f = t104Build({ nums: [] })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+  assert.equal(f[0].depth, 0)
+})
+check('[34.8] ⑧ ask.options 长度与轮转后顺序写死比对（防「永远第一个」）', () => {
+  const f0 = t104Build({ nums: T104_A, picks: ['s0', 's1'] })
+  assert.deepEqual(
+    f0[3].ask.options.map((o) => o.pick),
+    ['guess-0', 'guess-1', 'guess-3'],
+  )
+  const f1 = t104Build({ nums: T104_A, picks: ['s0', 's1', 'guess-1', 's2', 's5'] })
+  assert.deepEqual(
+    f1[7].ask.options.map((o) => o.pick),
+    ['guess-1', 'guess-3', 'guess-0'],
+  )
+  const f2 = t104Build({ nums: T104_A, picks: ['s0', 's1', 'guess-1', 's2', 's5', 'guess-1', 's6'] })
+  assert.deepEqual(
+    f2[10].ask.options.map((o) => o.pick),
+    ['guess-3', 'guess-0', 'guess-1'],
+  )
+})
+check('[34.9] ⑨ 真 5 层数组 → 1 帧 done + 「只支持 4 层以内」', () => {
+  const f = t104Build({ nums: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+  assert.match(f[0].caption, /只支持 4 层以内（当前 5 层）/)
+})
+check('[34.10] ⑩ 预测正确后 answer 单调不减（A、B 全程）', () => {
+  for (const f of [t104Build({ nums: T104_A, picks: t104aFull }), t104Build({ nums: T104_B, picks: t104bFull })]) {
+    const ans = f[f.length - 1].answer
+    assert.ok(ans.length > 0)
+    for (let i = 1; i < ans.length; i += 1) assert.ok(ans[i] >= ans[i - 1], `answer[${i}] < answer[${i - 1}]`)
+  }
+})
+check('[34.11] ⑪ 空格列表：A = []、B = [s2,s4]（锁「第 L 层不画」）', () => {
+  assert.deepEqual(
+    t104a[0].cells.filter((c) => c.empty).map((c) => c.id),
+    [],
+  )
+  assert.deepEqual(
+    t104b[0].cells.filter((c) => c.empty).map((c) => c.id),
+    ['s2', 's4'],
+  )
+})
+check('[34.12] 帧结构：cur/back 指针、marks 流转、ask 帧带「不进画面」明写', () => {
+  const fa = t104Build({ nums: T104_A, picks: t104aFull })
+  assert.deepEqual(fa[1].pointers, [{ name: 'cur', at: 's0' }]) // ① 帧进入
+  assert.equal(fa[1].marks.s0, 'active')
+  assert.equal(fa[2].marks.s1, 'active') // ① 帧进入 9：active 换成当前主角
+  assert.match(fa[3].caption, /第 3 层的空格不进画面/) // 叶两边 ∅ 不画格，caption 明写
+  assert.deepEqual(fa[4].pointers, [{ name: 'back', at: 's0' }]) // ③ 帧合并、back 指回父
+  assert.equal(fa[4].marks.s1, 'ok')
+  assert.deepEqual(fa[4].answer, [1])
+  assert.deepEqual(fa[15].pointers, [{ name: 'back', at: null }]) // 根的 back 悬空
+  const fb = t104Build({ nums: T104_B, picks: t104bFull })
+  assert.equal(fb[9].marks.s4, 'active') // 空格轮：点中即返回 0
+  assert.match(fb[9].caption, /返回 0/)
+  assert.deepEqual(fb[9].pointers, [
+    { name: 'cur', at: 's4' },
+    { name: 'back', at: 's1' },
+  ])
+  assert.deepEqual(fb[12].marks.s2, 'active') // 第二个空格轮（1 的右）
+})
+
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

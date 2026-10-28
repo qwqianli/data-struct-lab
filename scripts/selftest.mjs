@@ -1972,5 +1972,167 @@ check('[36.13] 任务书轨迹写死：A [1,3,2]→[2,3,5]→[3,5,4]；B [5,7,8,
   assert.deepEqual(fb[11].heap, [6, 7, 8, 9]) // 换顶 6 后
 })
 
+// —— [37] P9b-2：347 前 K 个高频元素（HashCanvas + TreeCanvas 双画布联动）——
+import {
+  buildFrames as t347Build,
+  checkPick as t347Check,
+  FIXTURE_A as T347_A,
+  FIXTURE_B as T347_B,
+} from '../src/demos/heap/top-k-frequent/engine.js'
+
+console.log('\n[37] 347 前 K 高频')
+
+const t347aFull = ['op-push', 'op-push', 'op-push', 'op-discard', 'op-replace']
+const t347bFull = ['op-push', 'op-push', 'op-replace']
+
+check('[37.1] ① A 全对 → 12 帧、答案 [5,1,2]、done', () => {
+  const f = t347Build({ nums: T347_A.nums, k: T347_A.k, picks: t347aFull })
+  assert.equal(f.length, 12)
+  assert.equal(f[11].done, true)
+  assert.deepEqual(f[11].answer, [5, 1, 2])
+})
+check('[37.2] ② B 全对 → 8 帧、答案 [3,1]', () => {
+  const f = t347Build({ nums: T347_B.nums, k: T347_B.k, picks: t347bFull })
+  assert.equal(f.length, 8)
+  assert.equal(f[7].done, true)
+  assert.deepEqual(f[7].answer, [3, 1])
+})
+check('[37.3] ③ 频率表正确：A 1→3 2→2 3→1 4→1 5→5；B 1→2 2→1 3→3', () => {
+  const freqMap = (frame) => {
+    const m = {}
+    for (const chain of frame.hash.buckets) for (const item of chain) m[item.key] = item.value
+    return m
+  }
+  assert.deepEqual(freqMap(t347Build({ nums: T347_A.nums, k: T347_A.k, picks: t347aFull })[1]), {
+    1: '3',
+    2: '2',
+    3: '1',
+    4: '1',
+    5: '5',
+  })
+  assert.deepEqual(freqMap(t347Build({ nums: T347_B.nums, k: T347_B.k, picks: t347bFull })[1]), {
+    1: '2',
+    2: '1',
+    3: '3',
+  })
+})
+check('[37.4] ④ buckets 结构合法：key/value 全字符串、capacity = 不同值个数（A=5、B=3）', () => {
+  for (const [data, cap] of [
+    [T347_A, 5],
+    [T347_B, 3],
+  ]) {
+    const f = t347Build({ nums: data.nums, k: data.k })
+    assert.equal(f[1].hash.capacity, cap)
+    assert.equal(f[1].hash.buckets.length, cap)
+    const items = f[1].hash.buckets.flat()
+    assert.equal(items.length, cap) // 每个不同值恰一项
+    for (const it of items) {
+      assert.equal(typeof it.key, 'string')
+      assert.equal(typeof it.value, 'string')
+    }
+  }
+})
+check('[37.5] ⑤ 该丢弃（A 的 4）却选 op-replace → ok:false「换进来会把堆顶 3 挤掉」', () => {
+  const f = t347Build({ nums: T347_A.nums, k: T347_A.k, picks: ['op-push', 'op-push', 'op-push'] })
+  assert.equal(f.length, 8) // f7 = 值 4 的决策帧（堆 [3,1,2] 顶 3 频率 1）
+  const r = t347Check(f[7], 'op-replace')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /4 只出现 1 次/)
+  assert.match(r.message, /会把堆顶 3 挤掉/) // 书例句的「5」不在堆中：被挤的是堆顶 3，断言锁实际值
+})
+check('[37.6] ⑥ 该换顶（A 的 5）却选 op-discard → ok:false「丢掉就漏了」', () => {
+  const f = t347Build({ nums: T347_A.nums, k: T347_A.k, picks: ['op-push', 'op-push', 'op-push', 'op-discard'] })
+  assert.equal(f.length, 10) // f9 = 值 5 的决策帧（堆 [3,1,2] 顶 3 频率 1）
+  const r = t347Check(f[9], 'op-discard')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /5 出现 5 次/)
+  assert.match(r.message, /比堆顶 3 的 1 次多/)
+  assert.match(r.message, /丢掉就漏了/)
+})
+check('[37.7] ⑦ 堆规模恒 ≤ k（A ≤3、B ≤2）', () => {
+  const fa = t347Build({ nums: T347_A.nums, k: T347_A.k, picks: t347aFull })
+  const fb = t347Build({ nums: T347_B.nums, k: T347_B.k, picks: t347bFull })
+  for (const fr of fa) assert.ok(fr.heap.length <= T347_A.k, `A 堆超规模：${fr.heap.length}`)
+  for (const fr of fb) assert.ok(fr.heap.length <= T347_B.k, `B 堆超规模：${fr.heap.length}`)
+})
+check('[37.8] ⑧ ask 三项顺序按轮转写死比对（防「永远同一位置」）', () => {
+  const f1 = t347Build({ nums: T347_A.nums, k: T347_A.k, picks: ['op-push'] })
+  assert.deepEqual(
+    f1[1].ask.options.map((o) => o.pick),
+    ['op-push', 'op-replace', 'op-discard'],
+  )
+  assert.deepEqual(
+    f1[3].ask.options.map((o) => o.pick),
+    ['op-replace', 'op-discard', 'op-push'],
+  )
+  const f2 = t347Build({ nums: T347_A.nums, k: T347_A.k, picks: ['op-push', 'op-push'] })
+  assert.deepEqual(
+    f2[5].ask.options.map((o) => o.pick),
+    ['op-discard', 'op-push', 'op-replace'],
+  )
+})
+check('[37.9] ⑨ 最终堆顶的频率 = 第 k 高的频率（A 顶 2(2 次)、B 顶 1(2 次)）', () => {
+  const fa = t347Build({ nums: T347_A.nums, k: T347_A.k, picks: t347aFull })
+  assert.equal(fa[11].heap[0].v, 2)
+  assert.equal(fa[11].heap[0].f, 2) // 按频率小顶堆：{1(3),2(2),5(5)} 顶必是频率最小的 2 —— 书表「A 顶频率 3」系笔误
+  const fb = t347Build({ nums: T347_B.nums, k: T347_B.k, picks: t347bFull })
+  assert.equal(fb[7].heap[0].v, 1)
+  assert.equal(fb[7].heap[0].f, 2)
+})
+check('[37.10] ⑩ 堆的父子边数：A 终局恰 2 条、B 恰 1 条', () => {
+  const fa = t347Build({ nums: T347_A.nums, k: T347_A.k, picks: t347aFull })
+  const fb = t347Build({ nums: T347_B.nums, k: T347_B.k, picks: t347bFull })
+  assert.equal(fa[11].edges.length, 2)
+  assert.equal(fb[7].edges.length, 1)
+})
+check('[37.11] ⑪ [] → 1 帧 done + []；k > 不同值个数 → 全部值都进答案', () => {
+  const f = t347Build({ nums: [], k: 3 })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+  assert.deepEqual(f[0].answer, [])
+  const g = t347Build({ nums: [1, 1, 2], k: 5, picks: ['op-push', 'op-push'] })
+  assert.equal(g[g.length - 1].done, true)
+  assert.deepEqual(g[g.length - 1].answer, [1, 2]) // 1(2 次)、2(1 次) 全进
+})
+check('[37.12] ⑫ 集成断言：layoutEdges 实算 A/B 终局堆边全有限；range 恒 null（本题不用横条）', () => {
+  const fa = t347Build({ nums: T347_A.nums, k: T347_A.k, picks: t347aFull })
+  const fb = t347Build({ nums: T347_B.nums, k: T347_B.k, picks: t347bFull })
+  for (const [f, n] of [
+    [fa, 2],
+    [fb, 1],
+  ]) {
+    const last = f[f.length - 1]
+    const shapes = tg.layoutEdges(last.cells, last.edges, last.levels)
+    assert.equal(shapes.length, n)
+    for (const s of shapes) {
+      assert.ok(Number.isFinite(s.x1), `${s.key} x1=NaN`)
+      assert.ok(Number.isFinite(s.x2), `${s.key} x2=NaN`)
+      assert.ok(Number.isFinite(s.y1), `${s.key} y1=NaN`)
+      assert.ok(Number.isFinite(s.y2), `${s.key} y2=NaN`)
+    }
+  }
+  for (const f of [fa, fb]) {
+    for (const fr of f) assert.ok(fr.range === undefined || fr.range === null, '本题不该出现 range')
+  }
+})
+check('[37.13] 轨迹写死：A [1]→[2,1]→[3,1,2]→丢弃不动→[2,1,5]；B [2,1]→[1,3]', () => {
+  const fa = t347Build({ nums: T347_A.nums, k: T347_A.k, picks: t347aFull })
+  const vals = (fr) => fr.heap.map((h) => h.v)
+  assert.deepEqual(vals(fa[2]), [1])
+  assert.deepEqual(vals(fa[4]), [2, 1])
+  assert.deepEqual(vals(fa[6]), [3, 1, 2])
+  assert.deepEqual(vals(fa[8]), [3, 1, 2]) // 丢弃 4：不动
+  assert.deepEqual(vals(fa[10]), [2, 1, 5]) // 换顶 5 后（按频率小顶堆的数组序）
+  const fb = t347Build({ nums: T347_B.nums, k: T347_B.k, picks: t347bFull })
+  assert.deepEqual(vals(fb[4]), [2, 1])
+  assert.deepEqual(vals(fb[6]), [1, 3])
+})
+check('[37.14] 左表全程在场：f0 空桶、f1 起满员（统计 1 帧给全，不让用户数）', () => {
+  const fa = t347Build({ nums: T347_A.nums, k: T347_A.k, picks: t347aFull })
+  for (const fr of fa) assert.ok(fr.hash && fr.hash.buckets.length === 5)
+  assert.equal(fa[0].hash.buckets.flat().length, 0) // 初始：还没数
+  assert.equal(fa[1].hash.buckets.flat().length, 5) // 统计帧：一次给全
+})
+
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

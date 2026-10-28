@@ -14,6 +14,7 @@ import LevelOrderDemo from '../demos/tree/level-order/Demo.vue'
 import MaxDepthDemo from '../demos/tree/max-depth/Demo.vue'
 import ValidateBstDemo from '../demos/tree/validate-bst/Demo.vue'
 import KthLargestDemo from '../demos/heap/kth-largest/Demo.vue'
+import TopKFrequentDemo from '../demos/heap/top-k-frequent/Demo.vue'
 
 /**
  * 演示注册表 —— 全部 22 个演示的唯一事实来源。
@@ -714,7 +715,38 @@ export const CATEGORIES = [
         slug: 'top-k-frequent-elements',
         difficulty: '中',
         blurb: '先用哈希数频率，再用堆筛 K 个',
-        status: 'planned',
+        status: 'ready',
+        component: TopKFrequentDemo,
+        related: [
+          {
+            no: 215,
+            slug: 'kth-largest-element-in-an-array',
+            title: '数组中第 K 大的元素',
+            difficulty: '中',
+            why: '同样是小顶堆，比较的键从数值换成频率',
+          },
+          {
+            no: 295,
+            slug: 'find-median-from-data-stream',
+            title: '数据流的中位数',
+            difficulty: '难',
+            why: '两个堆对着维护',
+          },
+          {
+            no: 692,
+            slug: 'top-k-frequent-words',
+            title: '前 K 个高频单词',
+            difficulty: '中',
+            why: '频率相同再按字典序，比较器要多一层',
+          },
+          {
+            no: 451,
+            slug: 'sort-characters-by-frequency',
+            title: '根据字符出现频率排序',
+            difficulty: '中',
+            why: '只要频次排序结果，那就干脆桶排序',
+          },
+        ],
       },
       {
         id: 'median-finder',

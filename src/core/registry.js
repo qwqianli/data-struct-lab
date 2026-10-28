@@ -15,6 +15,7 @@ import MaxDepthDemo from '../demos/tree/max-depth/Demo.vue'
 import ValidateBstDemo from '../demos/tree/validate-bst/Demo.vue'
 import KthLargestDemo from '../demos/heap/kth-largest/Demo.vue'
 import TopKFrequentDemo from '../demos/heap/top-k-frequent/Demo.vue'
+import MedianFinderDemo from '../demos/heap/median-finder/Demo.vue'
 
 /**
  * 演示注册表 —— 全部 22 个演示的唯一事实来源。
@@ -755,7 +756,38 @@ export const CATEGORIES = [
         slug: 'find-median-from-data-stream',
         difficulty: '难',
         blurb: '大顶堆存小的一半，小顶堆存大的一半',
-        status: 'planned',
+        status: 'ready',
+        component: MedianFinderDemo,
+        related: [
+          {
+            no: 703,
+            slug: 'kth-largest-element-in-a-stream',
+            title: '数据流中的第 K 大元素',
+            difficulty: '易',
+            why: '只要第 K 大，一个大小为 K 的堆就够',
+          },
+          {
+            no: 480,
+            slug: 'sliding-window-median',
+            title: '滑动窗口中位数',
+            difficulty: '难',
+            why: '窗口会滑动，搬移还要处理过期元素',
+          },
+          {
+            no: 215,
+            slug: 'kth-largest-element-in-an-array',
+            title: '数组中第 K 大的元素',
+            difficulty: '中',
+            why: '一个堆 vs 两个堆，规模差一半',
+          },
+          {
+            no: 347,
+            slug: 'top-k-frequent-elements',
+            title: '前 K 个高频元素',
+            difficulty: '中',
+            why: '同样是堆，那边的键是频率',
+          },
+        ],
       },
     ],
   },

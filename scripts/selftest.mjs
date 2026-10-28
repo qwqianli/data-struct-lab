@@ -2134,5 +2134,191 @@ check('[37.14] 左表全程在场：f0 空桶、f1 起满员（统计 1 帧给�
   assert.equal(fa[1].hash.buckets.flat().length, 5) // 统计帧：一次给全
 })
 
+// —— [38] P9b-3：295 数据流的中位数（双堆，noScale 的第一个真正用户）——
+import {
+  buildFrames as t295Build,
+  checkPick as t295Check,
+  FIXTURE_A as T295_A,
+  FIXTURE_B as T295_B,
+} from '../src/demos/heap/median-finder/engine.js'
+
+console.log('\n[38] 295 双堆中位数')
+
+const t295aFull = ['op-big', 'op-small', 'op-small', 'op-small', 'op-small']
+const t295bFull = ['op-big', 'op-big', 'op-small', 'op-big', 'op-small', 'op-big']
+
+check('[38.1] ① A 全对 → 11 帧；5 个结果帧 median 依次 1,2,2,2.5,3；末帧 done', () => {
+  const f = t295Build({ stream: T295_A.stream, picks: t295aFull })
+  assert.equal(f.length, 11)
+  assert.deepEqual(
+    [f[1].median, f[3].median, f[5].median, f[7].median, f[9].median],
+    [1, 2, 2, 2.5, 3],
+  )
+  assert.equal(f[10].done, true)
+})
+check('[38.2] ② B 全对 → 13 帧；6 个结果帧 median 依次 5,3.5,5,3.5,4,3.5', () => {
+  const f = t295Build({ stream: T295_B.stream, picks: t295bFull })
+  assert.equal(f.length, 13)
+  assert.deepEqual(
+    [f[1].median, f[3].median, f[5].median, f[7].median, f[9].median, f[11].median],
+    [5, 3.5, 5, 3.5, 4, 3.5],
+  )
+  assert.equal(f[12].done, true)
+})
+check('[38.3] ③ 不变量：全程 |大顶| − |小顶| ∈ {0,1}（A、B 每帧）', () => {
+  const fa = t295Build({ stream: T295_A.stream, picks: t295aFull })
+  const fb = t295Build({ stream: T295_B.stream, picks: t295bFull })
+  for (const fr of [...fa, ...fb]) {
+    const d = fr.maxHeap.length - fr.minHeap.length
+    assert.ok(d === 0 || d === 1, `不变量破坏：|大顶|−|小顶| = ${d}`)
+  }
+})
+check('[38.4] ④ 中位数公式：等长取平均（A 第 2 步 2、第 4 步 2.5）、不等取大顶顶（A 第 1 步 1）', () => {
+  const f = t295Build({ stream: T295_A.stream, picks: t295aFull })
+  assert.equal(f[3].maxHeap.length, f[3].minHeap.length) // 等长
+  assert.equal(f[3].median, (f[3].maxHeap[0] + f[3].minHeap[0]) / 2)
+  assert.equal(f[3].median, 2)
+  assert.equal(f[7].maxHeap.length, f[7].minHeap.length)
+  assert.equal(f[7].median, 2.5)
+  assert.equal(f[1].maxHeap.length - f[1].minHeap.length, 1) // 不等
+  assert.equal(f[1].median, f[1].maxHeap[0])
+  assert.equal(f[1].median, 1)
+})
+check('[38.5] ⑤ 该进大顶（B 第 2 步 2）却选 op-small → ok:false，点名「2 ≤ 大顶顶 5」', () => {
+  const f = t295Build({ stream: T295_B.stream, picks: ['op-big'] })
+  assert.equal(f.length, 3) // f2 = 元素 2 的决策帧（大顶 [5] 顶 5）
+  const r = t295Check(f[2], 'op-small')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /2 ≤ 大顶顶 5/)
+})
+check('[38.6] ⑥ 该进小顶（A 第 2 步 3）却选 op-big → ok:false，点名「3 > 大顶顶 1」', () => {
+  const f = t295Build({ stream: T295_A.stream, picks: ['op-big'] })
+  assert.equal(f.length, 3) // f2 = 元素 3 的决策帧（大顶 [1] 顶 1）
+  const r = t295Check(f[2], 'op-big')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /3 > 大顶顶 1/)
+})
+check('[38.7] ⑦ 搬移轮次写死：A 第 3/5 步搬 2/3（小顶→大顶）；B 第 2–6 步各搬一次', () => {
+  const fa = t295Build({ stream: T295_A.stream, picks: t295aFull })
+  assert.equal(fa[1].moved, null)
+  assert.equal(fa[3].moved, null)
+  assert.deepEqual(fa[5].moved, { v: 2, from: 'min' })
+  assert.equal(fa[7].moved, null)
+  assert.deepEqual(fa[9].moved, { v: 3, from: 'min' })
+  const fb = t295Build({ stream: T295_B.stream, picks: t295bFull })
+  assert.equal(fb[1].moved, null)
+  assert.deepEqual(fb[3].moved, { v: 5, from: 'max' })
+  assert.deepEqual(fb[5].moved, { v: 5, from: 'min' })
+  assert.deepEqual(fb[7].moved, { v: 5, from: 'max' })
+  assert.deepEqual(fb[9].moved, { v: 4, from: 'min' })
+  assert.deepEqual(fb[11].moved, { v: 4, from: 'max' })
+})
+check('[38.8] ⑧ ask 顺序写死：第 1 轮 [op-big,op-small]、第 2 轮 [op-small,op-big]、第 3 轮 [op-big,op-small]', () => {
+  const fa = t295Build({ stream: T295_A.stream, picks: ['op-big', 'op-small'] })
+  assert.deepEqual(
+    fa[0].ask.options.map((o) => o.pick),
+    ['op-big', 'op-small'],
+  )
+  assert.deepEqual(
+    fa[2].ask.options.map((o) => o.pick),
+    ['op-small', 'op-big'],
+  )
+  assert.deepEqual(
+    fa[4].ask.options.map((o) => o.pick),
+    ['op-big', 'op-small'],
+  )
+  const fb = t295Build({ stream: T295_B.stream, picks: ['op-big', 'op-big'] })
+  assert.deepEqual(
+    fb[0].ask.options.map((o) => o.pick),
+    ['op-big', 'op-small'],
+  )
+  assert.deepEqual(
+    fb[2].ask.options.map((o) => o.pick),
+    ['op-small', 'op-big'],
+  )
+  assert.deepEqual(
+    fb[4].ask.options.map((o) => o.pick),
+    ['op-big', 'op-small'],
+  )
+})
+check('[38.9] ⑨ 边数：3 节点的树各 2 条（A 末帧大顶、B 末帧小顶）', () => {
+  const fa = t295Build({ stream: T295_A.stream, picks: t295aFull })
+  const fb = t295Build({ stream: T295_B.stream, picks: t295bFull })
+  assert.equal(fa[10].maxTree.cells.length, 3)
+  assert.equal(fa[10].maxTree.edges.length, 2)
+  assert.equal(fb[12].minTree.cells.length, 3)
+  assert.equal(fb[12].minTree.edges.length, 2)
+})
+check('[38.10] ⑩ noScale 纯函数层：treeMaxWidth(2,{noScale:true})=190、treeWidth(2)=190、默认 304', () => {
+  assert.equal(tg.treeMaxWidth(2, { noScale: true }), 190)
+  assert.equal(tg.treeWidth(2), 190)
+  assert.equal(tg.treeMaxWidth(2), 304)
+})
+check('[38.11] ⑪ 空流 → 1 帧 done + 中位数 null', () => {
+  const f = t295Build({ stream: [] })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+  assert.equal(f[0].median, null)
+})
+check('[38.12] ⑫ 集成断言：layoutEdges 实算两棵树，端点全有限；range 恒 null', () => {
+  const fa = t295Build({ stream: T295_A.stream, picks: t295aFull })
+  const fb = t295Build({ stream: T295_B.stream, picks: t295bFull })
+  for (const f of [fa, fb]) {
+    for (const fr of f) {
+      for (const tree of [fr.maxTree, fr.minTree]) {
+        const shapes = tg.layoutEdges(tree.cells, tree.edges, tree.levels)
+        for (const s of shapes) {
+          assert.ok(Number.isFinite(s.x1), `${s.key} x1=NaN`)
+          assert.ok(Number.isFinite(s.x2), `${s.key} x2=NaN`)
+          assert.ok(Number.isFinite(s.y1), `${s.key} y1=NaN`)
+          assert.ok(Number.isFinite(s.y2), `${s.key} y2=NaN`)
+        }
+      }
+      assert.ok(fr.range === undefined || fr.range === null, '本题不该出现 range')
+    }
+  }
+})
+check('[38.13] 脚本轨迹逐行核对：两表的堆列（层序堆数组）与施工后实现一致', () => {
+  const fa = t295Build({ stream: T295_A.stream, picks: t295aFull })
+  const rowsA = [
+    [1, 3, 5, 7, 9],
+    [
+      [[1], []],
+      [[1], [3]],
+      [[2, 1], [3]],
+      [[2, 1], [3, 5]],
+      [[3, 1, 2], [4, 5]],
+    ],
+  ]
+  rowsA[0].forEach((fi, i) => {
+    assert.deepEqual(fa[fi].maxHeap, rowsA[1][i][0], `A f${fi} 大顶`)
+    assert.deepEqual(fa[fi].minHeap, rowsA[1][i][1], `A f${fi} 小顶`)
+  })
+  const fb = t295Build({ stream: T295_B.stream, picks: t295bFull })
+  const rowsB = [
+    [1, 3, 5, 7, 9, 11],
+    [
+      [[5], []],
+      [[2], [5]],
+      [[5, 2], [6]],
+      [[2, 1], [5, 6]],
+      [[4, 1, 2], [5, 6]],
+      [[3, 1, 2], [4, 6, 5]],
+    ],
+  ]
+  rowsB[0].forEach((fi, i) => {
+    assert.deepEqual(fb[fi].maxHeap, rowsB[1][i][0], `B f${fi} 大顶`)
+    assert.deepEqual(fb[fi].minHeap, rowsB[1][i][1], `B f${fi} 小顶`)
+  })
+})
+check('[38.14] 两堆 levels 恒 ≤ 2（各 ≤3 节点，锁「别写成 L=3」；noScale 下 190×2+16=396 ≤ 900）', () => {
+  const fa = t295Build({ stream: T295_A.stream, picks: t295aFull })
+  const fb = t295Build({ stream: T295_B.stream, picks: t295bFull })
+  for (const fr of [...fa, ...fb]) {
+    assert.ok(fr.maxTree.levels <= 2, `大顶 levels=${fr.maxTree.levels}`)
+    assert.ok(fr.minTree.levels <= 2, `小顶 levels=${fr.minTree.levels}`)
+  }
+})
+
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

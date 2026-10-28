@@ -1417,5 +1417,122 @@ check('[32.30] 修补单：layoutCells 中心/左上换算 —— A 的 s0 cx=16
   assert.equal(b.get('s7').left, 34) // 62 − 28
 })
 
+// —— [33] P9a-2：102 二叉树的层序遍历（TreeCanvas 第二个使用者，零渲染器改动）——
+import {
+  buildFrames as t102Build,
+  checkPick as t102Check,
+  FIXTURE_A as T102_A,
+  FIXTURE_B as T102_B,
+} from '../src/demos/tree/level-order/engine.js'
+
+console.log('\n[33] 102 层序遍历')
+
+const t102a = t102Build({ nums: T102_A })
+const t102b = t102Build({ nums: T102_B })
+
+check('[33.1] ① A 全对 → 11 帧、分组 [[3],[9,20],[15,7]]、done', () => {
+  const f = t102Build({ nums: T102_A, picks: ['s0', 's1', 's2', 's5', 's6'] })
+  assert.equal(f.length, 11)
+  assert.equal(f[10].done, true)
+  assert.deepEqual(f[10].seq, [3, 9, 20, 15, 7])
+  assert.deepEqual(f[10].groups, [[3], [9, 20], [15, 7]])
+})
+check('[33.2] ② B 全对 → 17 帧、分组 [[1],[2,3],[4,5,6,7],[8]]', () => {
+  const f = t102Build({ nums: T102_B, picks: ['s0', 's1', 's2', 's3', 's4', 's5', 's6', 's7'] })
+  assert.equal(f.length, 17)
+  assert.equal(f[16].done, true)
+  assert.deepEqual(f[16].groups, [[1], [2, 3], [4, 5, 6, 7], [8]])
+})
+check('[33.3] ③ B 本层没出完点下一层第一个（s3）→ 致命文案点名「本层还剩 1 个」，且不产帧', () => {
+  const f = t102Build({ nums: T102_B, picks: ['s0', 's1'] })
+  const last = f[f.length - 1]
+  assert.deepEqual(last.clickable, ['s2', 's3'])
+  const r = t102Check(last, 's3')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /本层（第 2 层）还剩 1 个/)
+  assert.match(r.message, /3（s2）/) // 点名本层剩谁
+  assert.equal(t102Build({ nums: T102_B, picks: ['s0', 's1', 's3'] }).length, 5) // s3 静默跳过
+})
+check('[33.4] ④ A 点本层非队首（s2）→ 「队列先进先出」，且不产帧', () => {
+  const f = t102Build({ nums: T102_A, picks: ['s0'] })
+  const last = f[f.length - 1]
+  assert.deepEqual(last.clickable, ['s1', 's2'])
+  const r = t102Check(last, 's2')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /队列先进先出/)
+  assert.match(r.message, /9（s1）/)
+  assert.equal(t102Build({ nums: T102_A, picks: ['s0', 's2'] }).length, 3)
+})
+check('[33.5] ⑤ 层末那一轮 clickable 写死比对：首元素 = 下一层第一个', () => {
+  const fa = t102Build({ nums: T102_A, picks: ['s0'] })
+  assert.deepEqual(fa[2].clickable, ['s1', 's2']) // s0 = 第 1 层最后一个 → 首元素 s1 = 第 2 层第一个
+  const fa3 = t102Build({ nums: T102_A, picks: ['s0', 's1', 's2'] })
+  assert.deepEqual(fa3[6].clickable, ['s5', 's6']) // s2 = 第 2 层最后一个 → 首元素 s5 = 第 3 层第一个
+  const fb3 = t102Build({ nums: T102_B, picks: ['s0', 's1', 's2'] })
+  assert.deepEqual(fb3[6].clickable, ['s3', 's4', 's5', 's6']) // 首元素 s3 = 第 3 层第一个
+})
+check('[33.6] ⑥ [] → 1 帧 done', () => {
+  const f = t102Build({ nums: [] })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+})
+check('[33.7] ⑦ 真 5 层数组 → 1 帧 done + 「只支持 4 层以内（当前 5 层）」', () => {
+  const f = t102Build({ nums: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+  assert.match(f[0].caption, /只支持 4 层以内（当前 5 层）/)
+})
+check('[33.8] ⑧ 分组长度与 levels 一致（A → 3 组/levels:3；B → 4 组/levels:4）', () => {
+  const fa = t102Build({ nums: T102_A, picks: ['s0', 's1', 's2', 's5', 's6'] })
+  assert.equal(fa[10].groups.length, 3)
+  assert.equal(fa[10].levels, 3)
+  const fb = t102Build({ nums: T102_B, picks: ['s0', 's1', 's2', 's3', 's4', 's5', 's6', 's7'] })
+  assert.equal(fb[16].groups.length, 4)
+  assert.equal(fb[16].levels, 4)
+})
+check('[33.9] ⑨ A、B 的空格列表都等于 []（锁「d = L 不画」）', () => {
+  assert.deepEqual(
+    t102a[0].cells.filter((c) => c.empty).map((c) => c.id),
+    [],
+  )
+  assert.deepEqual(
+    t102b[0].cells.filter((c) => c.empty).map((c) => c.id),
+    [],
+  )
+})
+check('[33.10] ⑩ 集成断言：layoutEdges 实算 A、B，端点全部有限；A 4 条边、B 7 条', () => {
+  for (const [frames, n] of [
+    [t102a, 4],
+    [t102b, 7],
+  ]) {
+    const shapes = tg.layoutEdges(frames[0].cells, frames[0].edges, frames[0].levels)
+    assert.equal(shapes.length, n)
+    for (const s of shapes) {
+      assert.ok(Number.isFinite(s.x1), `${s.key} x1=NaN`)
+      assert.ok(Number.isFinite(s.x2), `${s.key} x2=NaN`)
+      assert.ok(Number.isFinite(s.y1), `${s.key} y1=NaN`)
+      assert.ok(Number.isFinite(s.y2), `${s.key} y2=NaN`)
+    }
+  }
+})
+check('[33.11] 越界重复：已出队 → 「已经在答案里了」；done 帧 clickable 空 + 「已经走完了」', () => {
+  const f = t102Build({ nums: T102_A, picks: ['s0'] })
+  const r = t102Check(f[2], 's0')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /已经在答案里了/)
+  const full = t102Build({ nums: T102_A, picks: ['s0', 's1', 's2', 's5', 's6'] })
+  assert.deepEqual(full[10].clickable, [])
+  assert.match(t102Check(full[10], 's5').message, /已经走完了/)
+})
+check('[33.12] 逐帧口径：出队高亮在前（f1 已追加 seq=[3]）、层界指针不提前一格（f2 无、f3 落 d2@1）', () => {
+  const f = t102Build({ nums: T102_A, picks: ['s0', 's1'] })
+  assert.deepEqual(f[1].seq, [3]) // ① 帧 = 出队高亮 + 序列追加
+  assert.equal(f[1].marks.s0, 'active')
+  assert.equal(f[2].marks.s0, 'ok')
+  assert.equal(f[2].edges.find((e) => e.from === 's0' && e.to === 's1').kind, 'path') // ② 帧孩子边转 path
+  assert.deepEqual(f[2].pointers, []) // 第 2 层第一个还没出队，层界不该出现
+  assert.deepEqual(f[3].pointers, [{ name: 'd2', at: 1 }]) // 9 出队那一刻层界才落下
+})
+
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

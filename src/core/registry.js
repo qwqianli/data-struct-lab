@@ -10,6 +10,7 @@ import TwoSumDemo from '../demos/hash/two-sum/Demo.vue'
 import LongestConsecutiveDemo from '../demos/hash/longest-consecutive/Demo.vue'
 import GroupAnagramsDemo from '../demos/hash/group-anagrams/Demo.vue'
 import InorderTraversalDemo from '../demos/tree/inorder-traversal/Demo.vue'
+import LevelOrderDemo from '../demos/tree/level-order/Demo.vue'
 
 /**
  * 演示注册表 —— 全部 22 个演示的唯一事实来源。
@@ -544,7 +545,38 @@ export const CATEGORIES = [
         slug: 'binary-tree-level-order-traversal',
         difficulty: '中',
         blurb: '队列 + 每层计数，一行一行扫',
-        status: 'planned',
+        status: 'ready',
+        component: LevelOrderDemo,
+        related: [
+          {
+            no: 199,
+            slug: 'binary-tree-right-side-view',
+            title: '二叉树的右视图',
+            difficulty: '中',
+            why: '层序只留每层最后一个',
+          },
+          {
+            no: 103,
+            slug: 'binary-tree-zigzag-level-order-traversal',
+            title: '二叉树的锯齿形层序遍历',
+            difficulty: '中',
+            why: '同层顺序按深度奇偶倒过来',
+          },
+          {
+            no: 637,
+            slug: 'average-of-levels-in-binary-tree',
+            title: '二叉树的层平均值',
+            difficulty: '易',
+            why: '同层节点先收集再聚合',
+          },
+          {
+            no: 111,
+            slug: 'minimum-depth-of-binary-tree',
+            title: '二叉树的最小深度',
+            difficulty: '易',
+            why: 'BFS 第一次撞到叶就是答案',
+          },
+        ],
       },
       {
         id: 'max-depth',

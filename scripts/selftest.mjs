@@ -1839,5 +1839,138 @@ check('[35.16] 修补单：rangeBarRect 三组坐标有限且有序（直接调�
   assert.equal(tg.rangeBarRect(null, 3), null)
 })
 
+// —— [36] P9b-1：215 数组中第 K 大的元素（TreeCanvas 第一次画堆）——
+import {
+  buildFrames as t215Build,
+  checkPick as t215Check,
+  FIXTURE_A as T215_A,
+  FIXTURE_B as T215_B,
+} from '../src/demos/heap/kth-largest/engine.js'
+
+console.log('\n[36] 215 第 K 大')
+
+const t215aFull = ['op-push', 'op-push', 'op-push', 'op-replace', 'op-discard', 'op-replace']
+const t215bFull = ['op-push', 'op-push', 'op-push', 'op-push', 'op-discard', 'op-replace', 'op-discard']
+
+check('[36.1] ① A 全对 → 13 帧、答案 3、done', () => {
+  const f = t215Build({ nums: T215_A.nums, k: T215_A.k, picks: t215aFull })
+  assert.equal(f.length, 13)
+  assert.equal(f[12].done, true)
+  assert.equal(f[12].answer, 3)
+})
+check('[36.2] ② B 全对 → 15 帧、答案 6', () => {
+  const f = t215Build({ nums: T215_B.nums, k: T215_B.k, picks: t215bFull })
+  assert.equal(f.length, 15)
+  assert.equal(f[14].done, true)
+  assert.equal(f[14].answer, 6)
+})
+check('[36.3] ③ 堆规模恒 ≤ k（A ≤3、B ≤4，锁不变式）', () => {
+  const fa = t215Build({ nums: T215_A.nums, k: T215_A.k, picks: t215aFull })
+  const fb = t215Build({ nums: T215_B.nums, k: T215_B.k, picks: t215bFull })
+  for (const fr of fa) assert.ok(fr.heap.length <= T215_A.k, `A 堆超规模：${fr.heap.length}`)
+  for (const fr of fb) assert.ok(fr.heap.length <= T215_B.k, `B 堆超规模：${fr.heap.length}`)
+})
+check('[36.4] ④ A 第 5 个元素（0）该丢弃，选 op-replace → ok:false「会把答案挤掉」', () => {
+  const f = t215Build({ nums: T215_A.nums, k: T215_A.k, picks: ['op-push', 'op-push', 'op-push', 'op-replace'] })
+  assert.equal(f.length, 9) // f8 = 元素 0 的决策帧（堆 [2,3,5] 顶 2）
+  const r = t215Check(f[8], 'op-replace')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /0 比堆顶 2 小/)
+  assert.match(r.message, /会把答案挤掉/)
+  assert.equal(t215Build({ nums: T215_A.nums, k: T215_A.k, picks: [...['op-push', 'op-push', 'op-push', 'op-replace'], 'op-replace'] }).length, 9) // 不产帧
+})
+check('[36.5] ⑤ A 第 4 个元素（5）该换顶，选 op-discard → ok:false「丢掉就漏了」', () => {
+  const f = t215Build({ nums: T215_A.nums, k: T215_A.k, picks: ['op-push', 'op-push', 'op-push'] })
+  assert.equal(f.length, 7) // f6 = 元素 5 的决策帧（堆 [1,3,2] 顶 1）
+  const r = t215Check(f[6], 'op-discard')
+  assert.equal(r.ok, false)
+  assert.match(r.message, /5 比堆顶 1 大/)
+  assert.match(r.message, /丢掉就漏了/)
+})
+check('[36.6] ⑥ 堆没满时选 op-replace / op-discard → ok:false「先装满」', () => {
+  const f = t215Build({ nums: T215_A.nums, k: T215_A.k })
+  assert.equal(f.length, 1) // f0 = 第一问，堆 0/3
+  assert.match(t215Check(f[0], 'op-replace').message, /先装满/)
+  assert.match(t215Check(f[0], 'op-discard').message, /先装满/)
+})
+check('[36.7] ⑦ [] → 1 帧 done + 答案 null', () => {
+  const f = t215Build({ nums: [], k: 3 })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+  assert.equal(f[0].answer, null)
+})
+check('[36.8] ⑧ k > 数组长度 → 1 帧 done + null', () => {
+  const f = t215Build({ nums: [1, 2], k: 5 })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+  assert.equal(f[0].answer, null)
+})
+check('[36.9] ⑨ ask 三项顺序按轮转写死比对（防「永远同一位置」）', () => {
+  const f = t215Build({ nums: T215_A.nums, k: T215_A.k, picks: ['op-push', 'op-push'] })
+  assert.deepEqual(
+    f[0].ask.options.map((o) => o.pick),
+    ['op-push', 'op-replace', 'op-discard'],
+  )
+  assert.deepEqual(
+    f[2].ask.options.map((o) => o.pick),
+    ['op-replace', 'op-discard', 'op-push'],
+  )
+  assert.deepEqual(
+    f[4].ask.options.map((o) => o.pick),
+    ['op-discard', 'op-push', 'op-replace'],
+  )
+})
+check('[36.10] ⑩ 最终堆顶 === 答案（A 3、B 6），且堆规模 === k', () => {
+  const fa = t215Build({ nums: T215_A.nums, k: T215_A.k, picks: t215aFull })
+  assert.equal(fa[12].heap[0], 3)
+  assert.equal(fa[12].heap.length, T215_A.k)
+  const fb = t215Build({ nums: T215_B.nums, k: T215_B.k, picks: t215bFull })
+  assert.equal(fb[14].heap[0], 6)
+  assert.equal(fb[14].heap.length, T215_B.k)
+})
+check('[36.11] ⑪ 父子关系：A 终局 2 条边、B 3 条，每条 to 都是 from 的 2i+1/2i+2', () => {
+  const fa = t215Build({ nums: T215_A.nums, k: T215_A.k, picks: t215aFull })
+  const fb = t215Build({ nums: T215_B.nums, k: T215_B.k, picks: t215bFull })
+  for (const [f, n] of [
+    [fa, 2],
+    [fb, 3],
+  ]) {
+    assert.equal(f[f.length - 1].edges.length, n)
+    for (const e of f[f.length - 1].edges) {
+      const child = tg.idToIdx(e.to)
+      const parent = tg.idToIdx(e.from)
+      assert.ok(child === parent * 2 + 1 || child === parent * 2 + 2, `${e.from}->${e.to} 不是父子`)
+    }
+  }
+})
+check('[36.12] ⑫ 集成断言：layoutEdges 实算 A/B 终局堆，端点全部有限', () => {
+  const fa = t215Build({ nums: T215_A.nums, k: T215_A.k, picks: t215aFull })
+  const fb = t215Build({ nums: T215_B.nums, k: T215_B.k, picks: t215bFull })
+  for (const [f, n] of [
+    [fa, 2],
+    [fb, 3],
+  ]) {
+    const last = f[f.length - 1]
+    const shapes = tg.layoutEdges(last.cells, last.edges, last.levels)
+    assert.equal(shapes.length, n)
+    for (const s of shapes) {
+      assert.ok(Number.isFinite(s.x1), `${s.key} x1=NaN`)
+      assert.ok(Number.isFinite(s.x2), `${s.key} x2=NaN`)
+      assert.ok(Number.isFinite(s.y1), `${s.key} y1=NaN`)
+      assert.ok(Number.isFinite(s.y2), `${s.key} y2=NaN`)
+    }
+  }
+})
+check('[36.13] 任务书轨迹写死：A [1,3,2]→[2,3,5]→[3,5,4]；B [5,7,8,9]→[6,7,8,9]', () => {
+  const fa = t215Build({ nums: T215_A.nums, k: T215_A.k, picks: t215aFull })
+  assert.deepEqual(fa[5].heap, [1, 3, 2]) // 入 1 后
+  assert.deepEqual(fa[7].heap, [2, 3, 5]) // 换顶 5 后
+  assert.deepEqual(fa[9].heap, [2, 3, 5]) // 丢弃 0 后（不动）
+  assert.deepEqual(fa[11].heap, [3, 5, 4]) // 换顶 4 后
+  const fb = t215Build({ nums: T215_B.nums, k: T215_B.k, picks: t215bFull })
+  assert.deepEqual(fb[7].heap, [5, 7, 8, 9]) // 入满 4 个
+  assert.deepEqual(fb[11].heap, [6, 7, 8, 9]) // 换顶 6 后
+})
+
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

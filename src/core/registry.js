@@ -13,6 +13,7 @@ import InorderTraversalDemo from '../demos/tree/inorder-traversal/Demo.vue'
 import LevelOrderDemo from '../demos/tree/level-order/Demo.vue'
 import MaxDepthDemo from '../demos/tree/max-depth/Demo.vue'
 import ValidateBstDemo from '../demos/tree/validate-bst/Demo.vue'
+import KthLargestDemo from '../demos/heap/kth-largest/Demo.vue'
 
 /**
  * 演示注册表 —— 全部 22 个演示的唯一事实来源。
@@ -673,7 +674,38 @@ export const CATEGORIES = [
         slug: 'kth-largest-element-in-an-array',
         difficulty: '中',
         blurb: '小顶堆只留 K 个，堆顶就是答案',
-        status: 'planned',
+        status: 'ready',
+        component: KthLargestDemo,
+        related: [
+          {
+            no: 347,
+            slug: 'top-k-frequent-elements',
+            title: '前 K 个高频元素',
+            difficulty: '中',
+            why: '同样是小顶堆，比较的键从数值换成频率',
+          },
+          {
+            no: 295,
+            slug: 'find-median-from-data-stream',
+            title: '数据流的中位数',
+            difficulty: '难',
+            why: '两个堆对着维护，取中位数就是两个堆顶',
+          },
+          {
+            no: 23,
+            slug: 'merge-k-sorted-lists',
+            title: '合并 K 个升序链表',
+            difficulty: '难',
+            why: 'k 路归并也是用堆挑最小',
+          },
+          {
+            no: 703,
+            slug: 'kth-largest-element-in-a-stream',
+            title: '数据流中的第 K 大元素',
+            difficulty: '易',
+            why: '数据流版本，堆永远保持 k 个',
+          },
+        ],
       },
       {
         id: 'top-k-frequent',

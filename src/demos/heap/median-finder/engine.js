@@ -28,17 +28,21 @@ const OPS = ['op-big', 'op-small']
 
 function siftUpMax(h) {
   let i = h.length - 1
+  const swaps = new Set()
   while (i > 0) {
     const p = (i - 1) >> 1
     if (h[p] >= h[i]) break
     ;[h[p], h[i]] = [h[i], h[p]]
+    swaps.add(i)
     i = p
   }
-  return i
+  swaps.finalIdx = i
+  return swaps
 }
 
 function siftDownMax(h) {
   let i = 0
+  const swaps = new Set()
   for (;;) {
     const l = i * 2 + 1
     const r = l + 1
@@ -47,26 +51,32 @@ function siftDownMax(h) {
     if (r < h.length && h[r] > h[m]) m = r
     if (m === i) break
     ;[h[i], h[m]] = [h[m], h[i]]
+    swaps.add(m)
     i = m
   }
-  return i
+  swaps.finalIdx = i
+  return swaps
 }
 
 // —— 小顶堆（存较大的一半）——
 
 function siftUpMin(h) {
   let i = h.length - 1
+  const swaps = new Set()
   while (i > 0) {
     const p = (i - 1) >> 1
     if (h[p] <= h[i]) break
     ;[h[p], h[i]] = [h[i], h[p]]
+    swaps.add(i)
     i = p
   }
-  return i
+  swaps.finalIdx = i
+  return swaps
 }
 
 function siftDownMin(h) {
   let i = 0
+  const swaps = new Set()
   for (;;) {
     const l = i * 2 + 1
     const r = l + 1
@@ -75,16 +85,11 @@ function siftDownMin(h) {
     if (r < h.length && h[r] < h[m]) m = r
     if (m === i) break
     ;[h[i], h[m]] = [h[m], h[i]]
+    swaps.add(m)
     i = m
   }
-  return i
-}
-
-/** 终点下标的祖先链（root→终点），作为 path 边的 child 下标集合 */
-function chainSet(finalIdx) {
-  const set = new Set()
-  for (let i = finalIdx; i > 0; i = (i - 1) >> 1) set.add(i)
-  return set
+  swaps.finalIdx = i
+  return swaps
 }
 
 const heapLevels = (size) => (size === 0 ? 1 : Math.floor(Math.log2(size)) + 1)
@@ -229,16 +234,19 @@ export function buildFrames({ stream = DEFAULT_DATA.stream, picks = [] } = {}) {
     let caption
 
     if (correct === 'op-big') {
+      const maxWasEmpty = state.maxHeap.length === 0
       state.maxHeap.push(x)
       const up = siftUpMax(state.maxHeap)
-      for (const i of chainSet(up)) state.pathMax.add(i)
-      focusMax = [up]
-      caption = `${x} 进大顶堆（${x} ≤ 大顶顶）：`
+      for (const i of up) state.pathMax.add(i)
+      focusMax = [up.finalIdx]
+      caption = maxWasEmpty
+        ? `大顶堆还空着，不用比 —— ${x} 直接进大顶堆。`
+        : `${x} 进大顶堆（${x} ≤ 大顶顶）：`
     } else {
       state.minHeap.push(x)
       const up = siftUpMin(state.minHeap)
-      for (const i of chainSet(up)) state.pathMin.add(i)
-      focusMin = [up]
+      for (const i of up) state.pathMin.add(i)
+      focusMin = [up.finalIdx]
       caption = `${x} 进小顶堆（${x} > 大顶顶）：`
     }
 
@@ -248,13 +256,12 @@ export function buildFrames({ stream = DEFAULT_DATA.stream, picks = [] } = {}) {
       const last = state.maxHeap.pop()
       if (state.maxHeap.length) {
         state.maxHeap[0] = last
-        const down = siftDownMax(state.maxHeap)
-        state.pathMax = chainSet(down)
+        state.pathMax = siftDownMax(state.maxHeap)
       }
       state.minHeap.push(v)
       const up = siftUpMin(state.minHeap)
-      for (const i of chainSet(up)) state.pathMin.add(i)
-      focusMin = [up]
+      for (const i of up) state.pathMin.add(i)
+      focusMin = [up.finalIdx]
       state.moved = { v, from: 'max' }
       caption += `两半失衡（|大顶|−|小顶| 超过 1），大顶堆顶 ${v} 搬去小顶 —— `
     } else if (state.minHeap.length - state.maxHeap.length > 0) {
@@ -262,13 +269,12 @@ export function buildFrames({ stream = DEFAULT_DATA.stream, picks = [] } = {}) {
       const last = state.minHeap.pop()
       if (state.minHeap.length) {
         state.minHeap[0] = last
-        const down = siftDownMin(state.minHeap)
-        state.pathMin = chainSet(down)
+        state.pathMin = siftDownMin(state.minHeap)
       }
       state.maxHeap.push(v)
       const up = siftUpMax(state.maxHeap)
-      for (const i of chainSet(up)) state.pathMax.add(i)
-      focusMax = [up]
+      for (const i of up) state.pathMax.add(i)
+      focusMax = [up.finalIdx]
       state.moved = { v, from: 'min' }
       caption += `两半失衡（小顶比大顶多），小顶堆顶 ${v} 搬去大顶 —— `
     }
@@ -280,7 +286,7 @@ export function buildFrames({ stream = DEFAULT_DATA.stream, picks = [] } = {}) {
     state.marksMax = marksFor(state.maxHeap, focusMax)
     state.marksMin = marksFor(state.minHeap, focusMin)
     caption += `大顶 [${state.maxHeap.join('、')}]、小顶 [${state.minHeap.join('、')}]，中位数 ${fmt(state.median)}。`
-    if (state.moved) caption += '搬移走过的路径已点亮。'
+    if (state.moved) caption += (state.pathMax.size + state.pathMin.size) ? '搬移走过的路径已点亮。' : '（这一轮没有交换，堆形状不变）'
 
     state.cursor += 1
     const isLast = state.cursor >= stream.length

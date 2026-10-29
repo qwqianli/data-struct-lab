@@ -77,7 +77,7 @@ function readyOf(state) {
     .map((node) => node.id)
 }
 
-function snapshot(state, { caption, hint, done = false, cycle = null, ask = false } = {}) {
+function snapshot(state, { caption, hint, done = false, cycle = false, ask = false } = {}) {
   const remaining = remainingOf(state)
   const remainingSet = new Set(remaining)
   const ready = readyOf(state)

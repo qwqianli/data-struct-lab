@@ -5,7 +5,7 @@ export const SCALE_CAP = 1.6
 export const WEIGHT_OFFSET = 12
 
 export function graphWidth(nodes) {
-  if (!nodes.length) return 0
+  if (!nodes.length) return 120
   return Math.max(...nodes.map((node) => node.x)) + NODE_R
 }
 
@@ -15,6 +15,7 @@ export function graphHeight(nodes) {
 }
 
 export function graphMaxWidth(nodes) {
+  if (!nodes.length) return 120
   return Math.min(MAX_CANVAS, Math.round(graphWidth(nodes) * SCALE_CAP))
 }
 

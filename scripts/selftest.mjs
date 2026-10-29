@@ -12,6 +12,8 @@
  */
 import assert from 'node:assert/strict'
 import { buildFrames, checkPick, expectedMid, DEFAULT_VALUES, DEFAULT_TARGET } from '../src/demos/array/binary-search/engine.js'
+import { buildFrames as t200Build, checkPick as t200Check, FIXTURE_A as T200_A, FIXTURE_B as T200_B } from '../src/demos/graph/num-islands/engine.js'
+import * as tgrid from '../src/core/grid-geom.js'
 
 let passed = 0
 const failures = []
@@ -2320,15 +2322,27 @@ check('[38.14] 两堆 levels 恒 ≤ 2（各 ≤3 节点，锁「别写成 L=3�
   }
 })
 
-// —— [39] P10-1-200：网格 DFS 岛屿数量 + GridCanvas 几何 ——
-const {
-  buildFrames: t200Build,
-  checkPick: t200Check,
-  FIXTURE_A: T200_A,
-  FIXTURE_B: T200_B,
-} = await import('../src/demos/graph/num-islands/engine.js')
-const tgrid = await import('../src/core/grid-geom.js')
+check('[38.17/36.14/37.14] 搬移与上浮题注只在真实 path 边存在时宣称路径点亮', () => {
+  const frames215 = t215Build({ nums: T215_A.nums, k: T215_A.k, picks: t215aFull })
+  const frames347 = t347Build({ nums: T347_A.nums, k: T347_A.k, picks: t347aFull })
+  const frames295a = t295Build({ stream: T295_A.stream, picks: t295aFull })
+  const frames295b = t295Build({ stream: T295_B.stream, picks: t295bFull })
+  for (const fr of [...frames215, ...frames347]) {
+    const hasPath = fr.edges.some((edge) => edge.kind === 'path')
+    assert.ok(!fr.caption.includes('已点亮') || hasPath, fr.caption)
+  }
+  for (const fr of [...frames295a, ...frames295b]) {
+    if (!fr.moved) continue
+    const edges = [...fr.maxTree.edges, ...fr.minTree.edges]
+    assert.ok(!fr.caption.includes('已点亮') || edges.some((edge) => edge.kind === 'path'), fr.caption)
+  }
+  assert.ok(frames215[5].edges.some((edge) => edge.kind === 'path'), '215 A f5 应点亮上浮边')
+  assert.ok(frames347[4].edges.some((edge) => edge.kind === 'path'), '347 A f4 应点亮上浮边')
+  assert.ok(frames295a[5].maxTree.edges.some((edge) => edge.kind === 'path'), '295 A f5 应点亮大顶堆交换边')
+  assert.ok(frames295b[7].minTree.edges.some((edge) => edge.kind === 'path'), '295 B f7 应点亮小顶堆交换边')
+})
 
+// —— [39] P10-1-200：网格 DFS 岛屿数量 + GridCanvas 几何 ——
 console.log('\n[39] 200 岛屿数量')
 
 const t200aFull = ['right', 'down', 'right', 'down', 'left']
@@ -2476,6 +2490,15 @@ check('[39.15] ⑮ marks 只标已访问格，栈顶恒为 active 且至多一�
       if (fr.stack.length) assert.deepEqual(actives, [fr.stack.at(-1)])
       else assert.deepEqual(actives, [])
       for (const [, m] of Object.entries(fr.marks)) assert.ok(m === 'active' || m === 'ok')
+    }
+  }
+})
+
+check('[39.16] marks 的 active 恰好对应每帧当前栈顶', () => {
+  for (const [data, picks] of [[T200_A, t200aFull], [T200_B, t200bFull]]) {
+    for (const fr of t200Build({ data, picks })) {
+      const active = fr.cells.filter((cell) => fr.marks[cell.id] === 'active').map((cell) => cell.id)
+      assert.deepEqual(active, fr.stack.length ? [fr.stack.at(-1)] : [])
     }
   }
 })

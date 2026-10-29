@@ -147,7 +147,7 @@ function switchData(next) {
 
     <p v-if="feedback" class="feedback">{{ feedback }}</p>
 
-    <div v-if="frame.done" class="verdict verdict--ok">
+    <div v-if="frame.done" class="verdict" :class="frame.cycle ? 'verdict--warn' : 'verdict--ok'">
       {{ frame.cycle ? '剥不动了 —— 有环，207 的答案是 false。' : '全部剥完 —— 没有环，207 的答案是 true。' }}
     </div>
 
@@ -220,6 +220,7 @@ h2 { margin: 0 0 8px; font-size: 21px; font-weight: 650; color: var(--text-stron
 .feedback { margin: 0 0 14px; padding: 10px 14px; border-radius: 8px; background: #2a1810; border: 1px solid #5c3620; color: #ffc48a; font-size: 13px; }
 .verdict { margin-bottom: 14px; padding: 11px 15px; border-radius: 9px; font-size: 13px; line-height: 1.7; }
 .verdict--ok { background: #0f2519; border: 1px solid #1f5138; color: #a8e3c1; }
+.verdict--warn { background: #2a1810; border: 1px solid #5c3620; color: #ffc48a; }
 .bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line-soft); }
 .stats { font-size: 12.5px; color: var(--text-dim); font-family: var(--font-mono); }
 .stats b { color: var(--text-strong); font-weight: 600; }

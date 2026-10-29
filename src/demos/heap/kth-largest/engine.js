@@ -29,17 +29,21 @@ const OPS = ['op-push', 'op-replace', 'op-discard']
 
 function siftUp(heap) {
   let i = heap.length - 1
+  const swaps = new Set()
   while (i > 0) {
     const p = (i - 1) >> 1
     if (heap[p] <= heap[i]) break
     ;[heap[p], heap[i]] = [heap[i], heap[p]]
+    swaps.add(i)
     i = p
   }
-  return i // 终点下标（路径 = 终点的祖先链）
+  swaps.finalIdx = i
+  return swaps
 }
 
 function siftDown(heap) {
   let i = 0
+  const swaps = new Set()
   for (;;) {
     const l = i * 2 + 1
     const r = l + 1
@@ -48,16 +52,11 @@ function siftDown(heap) {
     if (r < heap.length && heap[r] < heap[m]) m = r
     if (m === i) break
     ;[heap[i], heap[m]] = [heap[m], heap[i]]
+    swaps.add(m)
     i = m
   }
-  return i
-}
-
-/** 终点下标的祖先链（root→终点），作为 path 边的下标集合 */
-function chainSet(finalIdx) {
-  const set = new Set()
-  for (let i = finalIdx; i > 0; i = (i - 1) >> 1) set.add(i)
-  return set
+  swaps.finalIdx = i
+  return swaps
 }
 
 const heapLevels = (size) => (size === 0 ? 1 : Math.floor(Math.log2(size)) + 1)
@@ -201,25 +200,25 @@ export function buildFrames({ nums = DEFAULT_DATA.nums, k = DEFAULT_DATA.k, pick
     let caption
     if (correct === 'op-push') {
       state.heap.push(v)
-      const finalIdx = siftUp(state.heap)
-      state.pathSet = chainSet(finalIdx)
-      state.marks = marksFor(finalIdx)
+      const swaps = siftUp(state.heap)
+      state.pathSet = swaps
+      state.marks = marksFor(swaps.finalIdx)
       caption = `入堆 ${v}：堆 = [${state.heap.join('、')}]（${state.heap.length}/${k}），堆顶 ${state.heap[0]}。${
-        finalIdx === state.heap.length - 1 ? '父节点比它小，没上浮。' : '上浮路径已点亮。'
+        swaps.size ? '上浮路径已点亮。' : '（这一轮没有交换，堆形状不变）'
       }`
     } else if (correct === 'op-replace') {
       const oldTop = state.heap[0]
       const last = state.heap.pop()
+      state.pathSet = new Set()
       if (state.heap.length) {
         state.heap[0] = last
-        const downIdx = siftDown(state.heap)
-        state.pathSet = chainSet(downIdx)
+        state.pathSet = siftDown(state.heap)
       }
       state.heap.push(v)
-      const upIdx = siftUp(state.heap)
-      for (const i of chainSet(upIdx)) state.pathSet.add(i)
-      state.marks = marksFor(upIdx)
-      caption = `换顶：弹出 ${oldTop}、放入 ${v} → [${state.heap.join('、')}]，堆顶 ${state.heap[0]}。弹出和上浮走过的路径都已点亮。`
+      const upSwaps = siftUp(state.heap)
+      for (const i of upSwaps) state.pathSet.add(i)
+      state.marks = marksFor(upSwaps.finalIdx)
+      caption = `换顶：弹出 ${oldTop}、放入 ${v} → [${state.heap.join('、')}]，堆顶 ${state.heap[0]}。${state.pathSet.size ? '弹出和上浮走过的路径已点亮。' : '（这一轮没有交换，堆形状不变）'}`
     } else {
       state.pathSet = new Set()
       state.marks = marksFor(0) // 丢弃：堆不动，堆顶保持焦点

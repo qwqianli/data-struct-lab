@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import {
   CELL,
+  CELL_GAP,
   CELL_RX,
   gridClickableGate,
   gridHeight,
@@ -19,9 +20,11 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['cell-click'])
-const width = computed(() => gridWidth(props.cols))
-const height = computed(() => gridHeight(props.rows))
 const placedCells = computed(() => layoutCells(props.cells))
+const LABEL_PAD = 14
+const canvasWidth = computed(() => gridWidth(props.cols) + LABEL_PAD)
+const canvasHeight = computed(() => gridHeight(props.rows) + LABEL_PAD)
+const canvasMaxWidth = computed(() => gridMaxWidth(props.cols) + Math.round(LABEL_PAD * 1.6))
 
 function cellClass(cell) {
   if (!cell.land) return 'cell cell--water'
@@ -38,9 +41,13 @@ function onClickCell(id) {
 <template>
   <svg
     class="canvas"
-    :viewBox="`0 0 ${width} ${height}`"
-    :style="{ width: '100%', aspectRatio: `${width} / ${height}`, maxWidth: `${gridMaxWidth(cols)}px` }"
+    :viewBox="`-${LABEL_PAD} -${LABEL_PAD} ${canvasWidth} ${canvasHeight}`"
+    :style="{ width: '100%', aspectRatio: `${canvasWidth} / ${canvasHeight}`, maxWidth: `${canvasMaxWidth}px` }"
   >
+    <g class="rulers">
+      <text v-for="col in cols" :key="`col-${col - 1}`" class="ruler-label" :x="(col - 1) * (CELL + CELL_GAP) + CELL / 2" y="-2" text-anchor="middle">{{ col - 1 }}</text>
+      <text v-for="row in rows" :key="`row-${row - 1}`" class="ruler-label" x="-2" :y="(row - 1) * (CELL + CELL_GAP) + CELL / 2" dy="0.35em" text-anchor="end">{{ row - 1 }}</text>
+    </g>
     <g
       v-for="cell in placedCells"
       :key="cell.id"
@@ -66,6 +73,13 @@ function onClickCell(id) {
   display: block;
   margin-inline: auto;
   overflow: visible;
+}
+
+.ruler-label {
+  fill: var(--text-dim);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  user-select: none;
 }
 
 .cell {

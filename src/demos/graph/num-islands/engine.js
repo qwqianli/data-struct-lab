@@ -1,4 +1,4 @@
-import { DIR_ORDER, cellId, neighbor } from '../../../core/grid-geom.js'
+import { DIRS, DIR_ORDER, cellId, neighbor } from '../../../core/grid-geom.js'
 
 export const FIXTURE_A = {
   rows: 4,
@@ -218,7 +218,10 @@ export function checkPick(frame, pick) {
 
   const { r, c } = frame.ask.at
   const pos = neighbor(r, c, pick, frame.rows, frame.cols)
-  if (!pos) return { ok: false, message: `(${r + (pick === 'down' ? 1 : pick === 'up' ? -1 : 0)},${c + (pick === 'right' ? 1 : pick === 'left' ? -1 : 0)}) 越界 —— 网格外没有路` }
+  if (!pos) {
+    const [dr, dc] = DIRS[pick]
+    return { ok: false, message: `(${r + dr},${c + dc}) 越界 —— 网格外没有路` }
+  }
   const target = cellAt(frame.cells, pos.r, pos.c)
   if (!target.land) return { ok: false, message: `(${pos.r},${pos.c}) 是水 —— DFS 只走陆地` }
   if (target.order !== null) return { ok: false, message: `(${pos.r},${pos.c}) 已经访问过 —— 走回去就死循环了` }

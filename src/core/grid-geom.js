@@ -4,6 +4,7 @@ export const CELL_RX = 7
 export const MAX_CANVAS = 860
 export const SCALE_CAP = 1.6
 export const DIR_ORDER = ['up', 'right', 'down', 'left']
+export const DIRS = { up: [-1, 0], right: [0, 1], down: [1, 0], left: [0, -1] }
 
 export function cellId(r, c) {
   return `g${r}-${c}`
@@ -34,12 +35,7 @@ export function inBounds(r, c, rows, cols) {
 }
 
 export function neighbor(r, c, dir, rows, cols) {
-  const delta = {
-    up: [-1, 0],
-    right: [0, 1],
-    down: [1, 0],
-    left: [0, -1],
-  }[dir]
+  const delta = DIRS[dir]
   if (!delta) return null
   const nr = r + delta[0]
   const nc = c + delta[1]

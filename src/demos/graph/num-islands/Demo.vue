@@ -199,7 +199,7 @@ h2 { margin: 0 0 8px; font-size: 21px; font-weight: 650; color: var(--text-stron
 .mode-btn--on { color: var(--text-strong); border-color: #35557f; background: #12203a; }
 .stage-side { font-size: 11.5px; color: var(--text-dim); }
 .board { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; }
-.grid-col { flex: none; }
+.grid-col { flex: none; width: min(100%, 490px); }
 .panel { flex: none; width: 220px; display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
 .panel-row { display: flex; align-items: baseline; justify-content: space-between; padding: 7px 10px; border: 1px solid var(--line-soft); border-radius: 8px; background: var(--panel); color: var(--text-dim); font-size: 12px; }
 .panel-row b { color: var(--text-strong); font-family: var(--font-mono); font-size: 14px; }

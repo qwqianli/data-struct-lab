@@ -18,6 +18,7 @@ import TopKFrequentDemo from '../demos/heap/top-k-frequent/Demo.vue'
 import MedianFinderDemo from '../demos/heap/median-finder/Demo.vue'
 import NumIslandsDemo from '../demos/graph/num-islands/Demo.vue'
 import CourseScheduleDemo from '../demos/graph/course-schedule/Demo.vue'
+import RottenOrangesDemo from '../demos/graph/rotten-oranges/Demo.vue'
 
 /**
  * 演示注册表 —— 全部 22 个演示的唯一事实来源。
@@ -820,7 +821,14 @@ export const CATEGORIES = [
         slug: 'rotting-oranges',
         difficulty: '中',
         blurb: '所有腐烂的橘子同时开始扩散',
-        status: 'planned',
+        status: 'ready',
+        component: RottenOrangesDemo,
+        related: [
+          { no: 200, slug: 'number-of-islands', title: '岛屿数量', difficulty: '中', why: '同样是四邻网格，但那个是 DFS 淹岛，这里是多源 BFS 同时扩散 —— 起点从一个变一堆' },
+          { no: 542, slug: '01-matrix', title: '01 矩阵', difficulty: '中', why: '多源 BFS 最直接的同类：所有 0 一起入队，算每格到最近的 0 有多远' },
+          { no: 934, slug: 'shortest-bridge', title: '最短的桥', difficulty: '中', why: '先用 DFS 圈出一座岛，再从那座岛多源 BFS 到另一座' },
+          { no: 1091, slug: 'shortest-path-in-binary-matrix', title: '二进制矩阵中的最短路径', difficulty: '中', why: '同样数层数，但答案是到达终点的步数，中途撞到就停' },
+        ],
       },
       {
         id: 'course-schedule',

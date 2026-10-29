@@ -2687,5 +2687,194 @@ check('[40.16] thawed 只属于发生了剥点的帧，决策帧与停滞帧必�
   }
 })
 
+// —— [41] P10-3-994：多源 BFS 与队列先后 ——
+const {
+  buildFrames: t994Build,
+  checkPick: t994Check,
+  FIXTURE_A: T994_A,
+  FIXTURE_B: T994_B,
+} = await import('../src/demos/graph/rotten-oranges/engine.js')
+const tgrid994 = await import('../src/core/grid-geom.js')
+
+console.log('\n[41] 994 腐烂的橘子')
+
+const t994aFull = ['g0-0', 'g2-4', 'g0-1', 'g1-0', 'g2-3', 'g0-2', 'g1-1']
+const t994bFull = ['g0-0', 'g1-0', 'g0-1', 'g1-1']
+
+check('[41.1] ① A 全对 → 14 帧、答案 3、自动收尾与 active 锁定', () => {
+  const f = t994Build({ data: T994_A, picks: t994aFull })
+  const last = f.at(-1)
+  assert.equal(f.length, 14)
+  assert.equal(last.done, true)
+  assert.equal(last.answer, 3)
+  assert.equal(last.ask, null)
+  assert.deepEqual(last.queue, [])
+  assert.equal(last.processed.length, 9)
+  assert.equal(last.marks['g2-1'], 'active')
+  assert.deepEqual(last.auto, ['g2-2', 'g2-1'])
+})
+check('[41.2] ② B 全对 → 8 帧、答案 -1、自动折叠与剩余新鲜格锁定', () => {
+  const last = t994Build({ data: T994_B, picks: t994bFull }).at(-1)
+  assert.equal(t994Build({ data: T994_B, picks: t994bFull }).length, 8)
+  assert.equal(last.done, true)
+  assert.equal(last.answer, -1)
+  assert.deepEqual(last.queue, [])
+  assert.deepEqual(last.auto, ['g0-2'])
+  assert.deepEqual(last.cells.filter((cell) => cell.land && cell.order === null).map((cell) => cell.id), ['g2-2', 'g2-3', 'g2-4'])
+})
+check('[41.3] ③ 帧数公式与决策/结果帧奇偶', () => {
+  const a = t994Build({ data: T994_A, picks: t994aFull })
+  const b = t994Build({ data: T994_B, picks: t994bFull })
+  const mid = t994Build({ data: T994_A, picks: t994aFull.slice(0, 3) })
+  assert.equal(a.length, 2 * t994aFull.length)
+  assert.equal(b.length, 2 * t994bFull.length)
+  assert.equal(mid.length, 7)
+  assert.ok(mid.at(-1).ask)
+  for (const f of [a, b, mid]) f.forEach((fr, i) => {
+    if (i % 2 === 0) assert.ok(fr.ask && !fr.done)
+    else assert.equal(fr.ask, null)
+  })
+})
+check('[41.4] ④ 决策正确项、完整选择序列与队列无重复', () => {
+  for (const [data, picks, expected] of [[T994_A, t994aFull, t994aFull], [T994_B, t994bFull, t994bFull]]) {
+    const f = t994Build({ data, picks })
+    assert.deepEqual(f.filter((fr) => fr.ask).map((fr) => fr.ask.correct), expected)
+    for (const fr of f) assert.equal(new Set(fr.queue).size, fr.queue.length)
+  }
+})
+check('[41.5] ⑤ 每帧队列恒按变烂分钟、行、列排序', () => {
+  for (const [data, picks] of [[T994_A, t994aFull], [T994_B, t994bFull]]) {
+    for (const fr of t994Build({ data, picks })) {
+      const byId = new Map(fr.cells.map((cell) => [cell.id, cell]))
+      const actual = fr.queue.map((id) => byId.get(id))
+      const sorted = [...actual].sort((a, b) => a.order - b.order || a.r - b.r || a.c - b.c)
+      assert.deepEqual(actual, sorted)
+    }
+  }
+})
+check('[41.6] ⑥ 计数守恒，processed 的变烂分钟非降', () => {
+  for (const [data, picks] of [[T994_A, t994aFull], [T994_B, t994bFull]]) {
+    for (const fr of t994Build({ data, picks })) {
+      const byId = new Map(fr.cells.map((cell) => [cell.id, cell]))
+      assert.equal(fr.rotten, fr.processed.length + fr.queue.length)
+      assert.equal(fr.land, fr.fresh + fr.rotten)
+      const orders = fr.processed.map((id) => byId.get(id).order)
+      assert.deepEqual(orders, [...orders].sort((a, b) => a - b))
+    }
+  }
+})
+check('[41.7] ⑦ marks 与 processed 状态逐帧一致', () => {
+  for (const [data, picks] of [[T994_A, t994aFull], [T994_B, t994bFull]]) {
+    for (const fr of t994Build({ data, picks })) {
+      assert.deepEqual(Object.keys(fr.marks).sort(), [...fr.processed].sort())
+      const active = Object.entries(fr.marks).filter(([, mark]) => mark === 'active').map(([id]) => id)
+      assert.ok(active.length <= 1)
+      if (fr.processed.length) assert.deepEqual(active, [fr.processed.at(-1)])
+      else assert.deepEqual(active, [])
+      for (const cell of fr.cells) {
+        if (!cell.land || cell.order === null) assert.equal(fr.marks[cell.id], undefined)
+      }
+      for (const id of fr.processed.slice(0, -1)) assert.equal(fr.marks[id], 'ok')
+    }
+  }
+})
+check('[41.8] ⑧ 决策帧可点全部 15 格，其他帧不可点', () => {
+  for (const fr of t994Build({ data: T994_A, picks: t994aFull })) {
+    if (fr.ask) {
+      assert.equal(fr.clickable.length, 15)
+      assert.ok(fr.clickable.every((id) => fr.cells.some((cell) => cell.id === id)))
+    } else assert.deepEqual(fr.clickable, [])
+  }
+})
+check('[41.9] ⑨ 每个决策帧至少有两个候选', () => {
+  for (const [data, picks] of [[T994_A, t994aFull], [T994_B, t994bFull]]) {
+    for (const fr of t994Build({ data, picks }).filter((item) => item.ask)) assert.ok(fr.queue.length >= 2)
+  }
+})
+check('[41.10] ⑩ minute、answer 与 spread 的时刻吻合', () => {
+  for (const [data, picks] of [[T994_A, t994aFull], [T994_B, t994bFull]]) {
+    for (const fr of t994Build({ data, picks })) {
+      assert.equal(fr.minute, Math.max(0, ...fr.cells.map((cell) => cell.order ?? 0)))
+      const byId = new Map(fr.cells.map((cell) => [cell.id, cell]))
+      for (const item of fr.spread) assert.equal(item.minute, byId.get(item.id).order)
+    }
+  }
+  assert.equal(t994Build({ data: T994_A, picks: t994aFull }).at(-1).answer, 3)
+  const bLast = t994Build({ data: T994_B, picks: t994bFull }).at(-1)
+  assert.equal(bLast.minute, 2)
+  assert.equal(bLast.answer, -1)
+})
+check('[41.11] ⑪ 六帧 caption 与四类 hint 逐字锁定', () => {
+  const a = t994Build({ data: T994_A, picks: t994aFull })
+  const b = t994Build({ data: T994_B, picks: t994bFull })
+  assert.equal(a[0].caption, '3×5 网格，2 个烂橘子、7 个新鲜橘子。烂橘子在第 0 分钟一起进队；处理一格时，它的新鲜四邻一起变烂、排到队尾。队列先比变烂的分钟，分钟相同再按行优先 —— 下一步处理哪一格由你判断。')
+  assert.equal(a[1].caption, '处理 (0,0)：(0,1) 第 1 分钟变烂，(1,0) 第 1 分钟变烂。')
+  assert.equal(a[2].caption, '已烂 4 / 9 格，队列里还有 3 格。轮到你判断下一步。')
+  assert.equal(a[7].caption, '处理 (1,0)：它四邻没有新鲜橘子。')
+  assert.equal(a[13].caption, '处理 (1,1)：(2,1) 第 3 分钟变烂。 剩下的队列格子都不会再让谁变烂，一并处理完（(2,2)、(2,1)）。 全部 9 个橘子都烂了，用了 3 分钟 —— 994 的答案是 3。')
+  assert.equal(b[7].caption, '处理 (1,1)：它四邻没有新鲜橘子。 队列只剩一格，后面不再问，自动处理 (0,2)。 队列空了，(2,2)、(2,3)、(2,4) 还是新鲜的 —— 994 的答案是 -1。')
+  assert.equal(a[0].hint, '队列先进先出：先比变烂的分钟，分钟相同再比行优先。')
+  assert.equal(a[1].hint, '下一步还是从队列里挑 —— 先烂的先走。')
+  assert.equal(a[13].hint, '每个橘子都烂了 —— 分钟数就是最后一格变烂的时刻。')
+  assert.equal(b[7].hint, '队列空了还有新鲜橘子 —— 它们被空格隔开，等不到烂橘子。')
+})
+check('[41.12] ⑫ checkPick 九种情形的判错顺序与文案', () => {
+  const a = t994Build({ data: T994_A, picks: t994aFull })
+  const b = t994Build({ data: T994_B, picks: t994bFull })
+  const cases = [
+    [a[0], 'g2-4', '(2,4) 和 (0,0) 都是第 0 分钟变烂，同一分钟按行优先 —— (0,0) 在前。'],
+    [a[2], 'g0-1', '(0,1) 是第 1 分钟才变烂，(2,4) 第 0 分钟就烂了 —— 先烂的先走。'],
+    [a[6], 'g2-3', '(2,3) 和 (1,0) 都是第 1 分钟变烂，同一分钟按行优先 —— (1,0) 在前。'],
+    [a[0], 'g0-3', '(0,3) 是空格 —— 空格永远不参与腐烂。'],
+    [a[0], 'g1-1', '(1,1) 还没变烂 —— 只有已经烂的格子才在队列里。'],
+    [a[2], 'g0-0', '(0,0) 已经处理过了 —— 每格只处理一次。'],
+    [a[0], 'g9-9', '没有这一格：g9-9'],
+    [a[1], 'g0-1', '现在没有要你决定的格子。'],
+    [a[13], 'g1-1', '已经结束了，没有下一步要处理。'],
+  ]
+  for (const [frame, pick, message] of cases) assert.deepEqual(t994Check(frame, pick), { ok: false, message })
+  assert.deepEqual(t994Check(b[0], 'g0-0'), { ok: true, message: '' })
+  assert.equal(a[0].ask.prompt, '下一步处理队列里的哪一格？点网格里的格子。')
+})
+check('[41.13] ⑬ 三种退化数据都只出一帧且不提问', () => {
+  const cases = [
+    [{ rows: 2, cols: 2, grid: [[1, 1], [1, 1]] }, -1, '网格里没有烂橘子 —— 新鲜橘子永远不会烂，994 的答案是 -1。'],
+    [{ rows: 2, cols: 2, grid: [[2, 2], [2, 2]] }, 0, '没有新鲜橘子 —— 一开始就是全烂，0 分钟，994 的答案是 0。'],
+    [{ rows: 1, cols: 3, grid: [[2, 1, 0]] }, 1, '开局只有 1 个烂橘子 —— 没有可判断的先后，直接一次跑完。全部 2 个橘子都烂了，用了 1 分钟 —— 994 的答案是 1。'],
+  ]
+  for (const [data, answer, caption] of cases) {
+    const f = t994Build({ data })
+    assert.equal(f.length, 1)
+    assert.equal(f[0].ask, null)
+    assert.equal(f[0].answer, answer)
+    assert.equal(f[0].caption, caption)
+  }
+})
+check('[41.14] ⑭ 错 pick 静默跳过，不产帧也不吞后续正确 pick', () => {
+  assert.equal(t994Build({ data: T994_A, picks: ['g0-0', 'g2-4', 'g2-4'] }).length, 5)
+  assert.equal(t994Build({ data: T994_A, picks: ['g0-0', 'g2-4'] }).length, 5)
+  assert.equal(t994Build({ data: T994_A, picks: ['g0-1'] }).length, 1)
+})
+check('[41.15] ⑮ buildFrames 是纯函数', () => {
+  const first = t994Build({ data: T994_A, picks: t994aFull })
+  const second = t994Build({ data: T994_A, picks: t994aFull })
+  assert.equal(JSON.stringify(first), JSON.stringify(second))
+})
+check('[41.16] ⑯ GridCanvas 几何：格 id 与中心点坐标逐帧吻合', () => {
+  assert.equal(tgrid994.CELL, 52)
+  assert.equal(tgrid994.CELL_GAP, 6)
+  for (const [data, picks] of [[T994_A, t994aFull], [T994_B, t994bFull]]) {
+    for (const fr of t994Build({ data, picks })) {
+      const placed = tgrid994.layoutCells(fr.cells)
+      assert.equal(placed.length, fr.rows * fr.cols)
+      for (const cell of placed) {
+        assert.equal(cell.id, `g${cell.r}-${cell.c}`)
+        assert.equal(cell.cx, cell.c * 58 + 26)
+        assert.equal(cell.cy, cell.r * 58 + 26)
+      }
+    }
+  }
+})
+
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

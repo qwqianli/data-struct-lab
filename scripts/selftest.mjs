@@ -2320,5 +2320,165 @@ check('[38.14] 两堆 levels 恒 ≤ 2（各 ≤3 节点，锁「别写成 L=3�
   }
 })
 
+// —— [39] P10-1-200：网格 DFS 岛屿数量 + GridCanvas 几何 ——
+const {
+  buildFrames: t200Build,
+  checkPick: t200Check,
+  FIXTURE_A: T200_A,
+  FIXTURE_B: T200_B,
+} = await import('../src/demos/graph/num-islands/engine.js')
+const tgrid = await import('../src/core/grid-geom.js')
+
+console.log('\n[39] 200 岛屿数量')
+
+const t200aFull = ['right', 'down', 'right', 'down', 'left']
+const t200bFull = ['right', 'right', 'down', 'down', 'left', 'left', 'down', 'down', 'down', 'down', 'left', 'left']
+
+check('[39.1] ① A 全对 → 11 帧；末帧 done、2 岛、访问 7', () => {
+  const f = t200Build({ data: T200_A, picks: t200aFull })
+  assert.equal(f.length, 11)
+  assert.equal(f[10].done, true)
+  assert.equal(f[10].count, 2)
+  assert.equal(f[10].visited, 7)
+})
+check('[39.2] ② B 全对 → 25 帧；末帧 done、3 岛、访问 15', () => {
+  const f = t200Build({ data: T200_B, picks: t200bFull })
+  assert.equal(f.length, 25)
+  assert.equal(f[24].done, true)
+  assert.equal(f[24].count, 3)
+  assert.equal(f[24].visited, 15)
+})
+check('[39.3] ③ A/B 帧数公式及决策帧、结果帧位置', () => {
+  for (const [data, picks] of [[T200_A, t200aFull], [T200_B, t200bFull]]) {
+    const f = t200Build({ data, picks })
+    assert.equal(f.length, 1 + 2 * picks.length)
+    f.forEach((fr, i) => {
+      if (i === f.length - 1) assert.equal(fr.done, true)
+      else if (i % 2 === 0) assert.ok(fr.ask !== null)
+      else assert.ok(fr.ask === null && !fr.done)
+    })
+  }
+})
+check('[39.4] ④ A/B 正确方向序列与选项顺序固定为上右下左', () => {
+  const expected = {
+    A: ['right', 'down', 'right', 'down', 'left'],
+    B: ['right', 'right', 'down', 'down', 'left', 'left', 'down', 'down', 'down', 'down', 'left', 'left'],
+  }
+  for (const [name, data, picks] of [['A', T200_A, t200aFull], ['B', T200_B, t200bFull]]) {
+    const f = t200Build({ data, picks })
+    assert.deepEqual(f.filter((fr) => fr.ask).map((fr) => fr.ask.correct), expected[name])
+    for (const fr of f.filter((item) => item.ask)) {
+      assert.deepEqual(fr.ask.options.map((option) => option.pick), ['up', 'right', 'down', 'left'])
+    }
+  }
+})
+check('[39.5] ⑤ 岛数等于累计 seeded 数；每次种岛前栈已空', () => {
+  for (const [data, picks] of [[T200_A, t200aFull], [T200_B, t200bFull]]) {
+    const f = t200Build({ data, picks })
+    let seededTotal = 0
+    for (let i = 0; i < f.length; i += 1) {
+      const fr = f[i]
+      seededTotal += fr.seeded.length
+      assert.equal(fr.count, seededTotal)
+      if (!fr.seeded.length) continue
+
+      const oldStack = [...(f[i - 1]?.stack ?? [])]
+      let poppedAt = 0
+      while (oldStack.length) assert.equal(fr.popped[poppedAt++], oldStack.pop())
+      for (const id of fr.seeded.slice(0, -1)) assert.equal(fr.popped[poppedAt++], id)
+      const lastSeed = fr.seeded.at(-1)
+      if (fr.stack.at(-1) !== lastSeed) assert.equal(fr.popped[poppedAt], lastSeed)
+    }
+  }
+})
+check('[39.6] ⑥ 每帧访问序号连续且数量等于 visited', () => {
+  for (const [data, picks] of [[T200_A, t200aFull], [T200_B, t200bFull]]) {
+    for (const fr of t200Build({ data, picks })) {
+      const orders = fr.cells.map((cell) => cell.order).filter((order) => order !== null).sort((a, b) => a - b)
+      assert.equal(orders.length, fr.visited)
+      assert.deepEqual(orders, Array.from({ length: fr.visited }, (_, i) => i + 1))
+    }
+  }
+})
+check('[39.7] ⑦ A f8 回溯两格后站在 g1-1，栈深 3', () => {
+  const f = t200Build({ data: T200_A, picks: t200aFull })[8]
+  assert.deepEqual(f.popped, ['g2-2', 'g1-2'])
+  assert.equal(f.stack.at(-1), 'g1-1')
+  assert.equal(f.stack.length, 3)
+})
+check('[39.8] ⑧ A f10 退栈与单格岛只计一次', () => {
+  const f = t200Build({ data: T200_A, picks: t200aFull })[10]
+  assert.deepEqual(f.popped, ['g1-0', 'g1-1', 'g0-1', 'g0-0', 'g3-4'])
+  assert.deepEqual(f.seeded, ['g3-4'])
+  assert.equal(f.count, 2)
+})
+check('[39.9] ⑨ B f16 跨岛：退栈 10 格、种两岛、栈顶 g2-4', () => {
+  const f = t200Build({ data: T200_B, picks: t200bFull })[16]
+  assert.equal(f.popped.length, 10)
+  assert.deepEqual(f.seeded, ['g0-4', 'g2-4'])
+  assert.equal(f.count, 3)
+  assert.equal(f.visited, 11)
+  assert.equal(f.stack.at(-1), 'g2-4')
+})
+check('[39.10] ⑩ 合法但顺序靠后会点名坐标与优先方向；越界点名原因', () => {
+  const f0 = t200Build({ data: T200_A })[0]
+  const late = t200Check(f0, 'down')
+  assert.equal(late.ok, false)
+  assert.match(late.message, /\(1,0\)/)
+  assert.match(late.message, /右/)
+  assert.match(t200Check(f0, 'up').message, /越界/)
+  assert.match(t200Check(f0, 'left').message, /越界/)
+})
+check('[39.11] ⑪ 水格、已访问格与正确选择反馈准确', () => {
+  const f = t200Build({ data: T200_A, picks: ['right'] })
+  assert.match(t200Check(f[2], 'right').message, /水/)
+  const g = t200Build({ data: T200_A, picks: ['right', 'down'] })
+  assert.match(t200Check(g[4], 'up').message, /已经访问/)
+  assert.deepEqual(t200Check(g[4], 'right'), { ok: true, message: '' })
+})
+check('[39.12] ⑫ 全水网格 → 单帧 done、0 岛、0 访问', () => {
+  const f = t200Build({ data: { rows: 2, cols: 3, grid: [[0, 0, 0], [0, 0, 0]] } })
+  assert.equal(f.length, 1)
+  assert.equal(f[0].done, true)
+  assert.equal(f[0].count, 0)
+  assert.equal(f[0].visited, 0)
+  assert.equal(f[0].ask, null)
+})
+check('[39.13] ⑬ 网格尺寸常量锁定', () => {
+  assert.equal(tgrid.gridWidth(5), 284)
+  assert.equal(tgrid.gridWidth(4), 226)
+  assert.equal(tgrid.gridHeight(4), 226)
+  assert.equal(tgrid.gridHeight(5), 284)
+  assert.equal(tgrid.gridMaxWidth(5), 454)
+  assert.equal(tgrid.gridMaxWidth(4), 362)
+})
+check('[39.14] ⑭ A/B 每帧布局坐标有限、末行列边界正确且 id 唯一', () => {
+  for (const [data, picks] of [[T200_A, t200aFull], [T200_B, t200bFull]]) {
+    const ids = Array.from({ length: data.rows * data.cols }, (_, i) => tgrid.cellId(Math.floor(i / data.cols), i % data.cols))
+    assert.equal(new Set(ids).size, data.rows * data.cols)
+    for (const fr of t200Build({ data, picks })) {
+      const placed = tgrid.layoutCells(fr.cells)
+      assert.equal(placed.length, data.rows * data.cols)
+      for (const cell of placed) {
+        for (const key of ['left', 'top', 'cx', 'cy']) assert.ok(Number.isFinite(cell[key]), `${cell.id} ${key} 非有限`)
+        if (cell.c === fr.cols - 1) assert.equal(cell.left + tgrid.CELL, tgrid.gridWidth(fr.cols))
+        if (cell.r === fr.rows - 1) assert.equal(cell.top + tgrid.CELL, tgrid.gridHeight(fr.rows))
+      }
+    }
+  }
+})
+check('[39.15] ⑮ marks 只标已访问格，栈顶恒为 active 且至多一个', () => {
+  for (const [data, picks] of [[T200_A, t200aFull], [T200_B, t200bFull]]) {
+    for (const fr of t200Build({ data, picks })) {
+      const visitedIds = fr.cells.filter((c) => c.order !== null).map((c) => c.id)
+      assert.deepEqual(Object.keys(fr.marks).sort(), [...visitedIds].sort())
+      const actives = Object.entries(fr.marks).filter(([, m]) => m === 'active').map(([id]) => id)
+      if (fr.stack.length) assert.deepEqual(actives, [fr.stack.at(-1)])
+      else assert.deepEqual(actives, [])
+      for (const [, m] of Object.entries(fr.marks)) assert.ok(m === 'active' || m === 'ok')
+    }
+  }
+})
+
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

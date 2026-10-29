@@ -16,6 +16,7 @@ import ValidateBstDemo from '../demos/tree/validate-bst/Demo.vue'
 import KthLargestDemo from '../demos/heap/kth-largest/Demo.vue'
 import TopKFrequentDemo from '../demos/heap/top-k-frequent/Demo.vue'
 import MedianFinderDemo from '../demos/heap/median-finder/Demo.vue'
+import NumIslandsDemo from '../demos/graph/num-islands/Demo.vue'
 
 /**
  * 演示注册表 —— 全部 22 个演示的唯一事实来源。
@@ -802,7 +803,14 @@ export const CATEGORIES = [
         slug: 'number-of-islands',
         difficulty: '中',
         blurb: '淹掉一个岛，再找下一个',
-        status: 'planned',
+        status: 'ready',
+        component: NumIslandsDemo,
+        related: [
+          { no: 994, slug: 'rotting-oranges', title: '腐烂的橘子', difficulty: '中', why: '一样的网格和四邻，换个方向：多源同时扩散' },
+          { no: 695, slug: 'max-area-of-island', title: '岛屿的最大面积', difficulty: '中', why: '同样要淹岛，但要在淹之前量面积' },
+          { no: 463, slug: 'island-perimeter', title: '岛屿的周长', difficulty: '易', why: '不求岛数，只数贴边的格子边' },
+          { no: 130, slug: 'surrounded-regions', title: '被围绕的区域', difficulty: '中', why: '从边上的水开始淹，剩下的才是被围住的' },
+        ],
       },
       {
         id: 'rotten-oranges',

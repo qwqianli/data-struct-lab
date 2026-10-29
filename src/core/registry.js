@@ -17,6 +17,7 @@ import KthLargestDemo from '../demos/heap/kth-largest/Demo.vue'
 import TopKFrequentDemo from '../demos/heap/top-k-frequent/Demo.vue'
 import MedianFinderDemo from '../demos/heap/median-finder/Demo.vue'
 import NumIslandsDemo from '../demos/graph/num-islands/Demo.vue'
+import CourseScheduleDemo from '../demos/graph/course-schedule/Demo.vue'
 
 /**
  * 演示注册表 —— 全部 22 个演示的唯一事实来源。
@@ -828,7 +829,38 @@ export const CATEGORIES = [
         slug: 'course-schedule',
         difficulty: '中',
         blurb: '入度为 0 的先修，剥到最后看还剩没剩',
-        status: 'planned',
+        status: 'ready',
+        component: CourseScheduleDemo,
+        related: [
+          {
+            no: 210,
+            slug: 'course-schedule-ii',
+            title: '课程表 II',
+            difficulty: '中',
+            why: '同一条剥法，但要把剥下的顺序留下来当答案',
+          },
+          {
+            no: 802,
+            slug: 'find-eventual-safe-states',
+            title: '找到最终的安全状态',
+            difficulty: '中',
+            why: '也靠「剥不动就有环」，只是从出度为 0 的终点往回剥',
+          },
+          {
+            no: 743,
+            slug: 'network-delay-time',
+            title: '网络延迟时间',
+            difficulty: '中',
+            why: '图从无权变带权，入度换成距离，下一步是 Dijkstra',
+          },
+          {
+            no: 133,
+            slug: 'clone-graph',
+            title: '克隆图',
+            difficulty: '中',
+            why: '先把图用邻接表存下来，再谈遍历',
+          },
+        ],
       },
       {
         id: 'network-delay',

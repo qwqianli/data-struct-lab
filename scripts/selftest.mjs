@@ -2480,5 +2480,203 @@ check('[39.15] ⑮ marks 只标已访问格，栈顶恒为 active 且至多一�
   }
 })
 
+// —— [40] P10-2-207：有向图几何与 Kahn 拓扑剥点 ——
+const {
+  buildFrames: t207Build,
+  checkPick: t207Check,
+  FIXTURE_A: T207_A,
+  FIXTURE_B: T207_B,
+} = await import('../src/demos/graph/course-schedule/engine.js')
+const tgraph = await import('../src/core/graph-geom.js')
+
+console.log('\n[40] 207 课程表')
+
+const t207aFull = ['c0', 'c1', 'c2', 'c3', 'c4']
+const t207bFull = ['c0', 'c1', 'c2']
+
+check('[40.1] ① A 全对 → 10 帧；无环全剥，自动收尾 C5', () => {
+  const f = t207Build({ data: T207_A, picks: t207aFull })
+  const last = f.at(-1)
+  assert.equal(f.length, 10)
+  assert.equal(last.done, true)
+  assert.equal(last.cycle, false)
+  assert.equal(last.ask, null)
+  assert.equal(last.peeled.length, 6)
+  assert.equal(last.remaining.length, 0)
+  assert.deepEqual(last.auto, ['c5'])
+})
+check('[40.2] ② B 全对 → 7 帧；停滞于三门环', () => {
+  const f = t207Build({ data: T207_B, picks: t207bFull })
+  const last = f.at(-1)
+  assert.equal(f.length, 7)
+  assert.equal(last.done, true)
+  assert.equal(last.cycle, true)
+  assert.equal(last.ask, null)
+  assert.deepEqual(last.peeled, ['c0', 'c1', 'c2'])
+  assert.deepEqual(last.remaining, ['c3', 'c4', 'c5'])
+})
+check('[40.3] ③ 帧序与 DAG / 有环帧数公式', () => {
+  for (const [data, picks, expectedLength] of [[T207_A, t207aFull, 10], [T207_B, t207bFull, 7]]) {
+    const f = t207Build({ data, picks })
+    assert.equal(f.length, expectedLength)
+    f.forEach((fr, i) => {
+      if (i === f.length - 1) assert.equal(fr.done, true)
+      else if (i % 2 === 1) assert.ok(fr.ask === null && !fr.done)
+      else assert.ok(fr.ask !== null)
+    })
+  }
+})
+check('[40.4] ④ 正确剥除序列、候选项升序且标签对应节点', () => {
+  for (const [data, picks, expected] of [
+    [T207_A, t207aFull, ['c0', 'c1', 'c2', 'c3', 'c4']],
+    [T207_B, t207bFull, ['c0', 'c1', 'c2']],
+  ]) {
+    const f = t207Build({ data, picks })
+    assert.deepEqual(f.filter((fr) => fr.ask).map((fr) => fr.ask.correct), expected)
+    expected.forEach((pick, i) => assert.equal(t207Check(f[i * 2], picks[i]).ok, true))
+    for (const fr of f.filter((item) => item.ask)) {
+      assert.deepEqual(fr.ask.options.map((option) => option.pick), fr.remaining)
+      assert.deepEqual(fr.ask.options.map((option) => option.label), fr.remaining.map((id) => fr.nodes.find((node) => node.id === id).label))
+    }
+  }
+})
+check('[40.5] ⑤ 入度等于剩余前驱边数，已剥节点入度为 0', () => {
+  for (const [data, picks] of [[T207_A, t207aFull], [T207_B, t207bFull]]) {
+    for (const fr of t207Build({ data, picks })) {
+      const remaining = new Set(fr.remaining)
+      for (const node of fr.nodes) {
+        if (remaining.has(node.id)) {
+          assert.equal(fr.inDeg[node.id], fr.edges.filter((edge) => edge.to === node.id && remaining.has(edge.from)).length)
+        } else {
+          assert.equal(fr.inDeg[node.id], 0)
+        }
+      }
+    }
+  }
+})
+check('[40.6] ⑥ 每步剥 ready[0]，thawed 逐条对应下游入度变化', () => {
+  const correctPicks = [
+    [T207_A, ['c0', 'c1', 'c2', 'c3', 'c4']],
+    [T207_B, ['c0', 'c1', 'c2']],
+  ]
+  for (const [data, picks] of correctPicks) {
+    const f = t207Build({ data, picks })
+    for (const fr of f.filter((item) => item.ask)) {
+      assert.deepEqual(fr.ready, [...fr.ready].sort((a, b) => a.localeCompare(b)))
+      assert.equal(fr.ask.correct, fr.ready[0])
+    }
+    picks.forEach((pick, i) => {
+      const decision = f[i * 2]
+      const result = f[i * 2 + 1]
+      assert.equal(t207Check(decision, pick).ok, true)
+      const beforeRemaining = new Set(decision.remaining)
+      const expected = decision.edges
+        .filter((edge) => edge.from === pick && beforeRemaining.has(edge.to))
+        .map((edge) => ({ id: edge.to, from: decision.inDeg[edge.to], to: decision.inDeg[edge.to] - 1 }))
+      assert.deepEqual(result.thawed, expected)
+    })
+  }
+})
+check('[40.7] ⑦ A 两次平局固定，第二次错选点名 C3 最小', () => {
+  const f = t207Build({ data: T207_A, picks: t207aFull })
+  assert.deepEqual(f[0].ready, ['c0', 'c1'])
+  assert.deepEqual(f[6].ready, ['c3', 'c4'])
+  const wrong = t207Check(f[6], 'c4')
+  assert.equal(wrong.ok, false)
+  assert.match(wrong.message, /C3/)
+  assert.match(wrong.message, /最小/)
+})
+check('[40.8] ⑧ A f9 收尾 C5、入度变化与 active 标记锁定', () => {
+  const f = t207Build({ data: T207_A, picks: t207aFull })[9]
+  assert.deepEqual(f.auto, ['c5'])
+  assert.deepEqual(f.peeled, ['c0', 'c1', 'c2', 'c3', 'c4', 'c5'])
+  assert.equal(f.marks.c5, 'active')
+  assert.deepEqual(f.thawed, [{ id: 'c5', from: 1, to: 0 }])
+})
+check('[40.9] ⑨ B f6 停滞环的节点、入度和 marks 锁定', () => {
+  const f = t207Build({ data: T207_B, picks: t207bFull })[6]
+  assert.equal(f.cycle, true)
+  assert.equal(f.ask, null)
+  assert.deepEqual(f.remaining, ['c3', 'c4', 'c5'])
+  assert.deepEqual(f.remaining.map((id) => f.inDeg[id]), [1, 1, 1])
+  assert.deepEqual(f.remaining.map((id) => f.marks[id]), ['stuck', 'stuck', 'stuck'])
+})
+check('[40.10] ⑩ 入度错误文案点名先修课', () => {
+  const a = t207Check(t207Build({ data: T207_A })[0], 'c2')
+  assert.match(a.message, /C2/)
+  assert.match(a.message, /C0、C1/)
+  assert.match(a.message, /入度/)
+  const b = t207Check(t207Build({ data: T207_B, picks: ['c0', 'c1'] })[4], 'c3')
+  assert.match(b.message, /入度还有 2/)
+  assert.match(b.message, /C2、C5/)
+})
+check('[40.11] ⑪ 顺序、已剥、终局与正确选择文案', () => {
+  const f = t207Build({ data: T207_A, picks: t207aFull })
+  assert.match(t207Check(f[6], 'c4').message, /最小/)
+  assert.match(t207Check(f[2], 'c0').message, /已经剥过/)
+  assert.match(t207Check(f[9], 'c0').message, /已经结束/)
+  assert.deepEqual(t207Check(f[0], 'c0'), { ok: true, message: '' })
+})
+check('[40.12] ⑫ 错 pick 静默跳过且不改变帧数', () => {
+  assert.equal(t207Build({ data: T207_A, picks: ['c1'] }).length, 1)
+  assert.equal(
+    t207Build({ data: T207_A, picks: ['c0', 'c0'] }).length,
+    t207Build({ data: T207_A, picks: ['c0'] }).length,
+  )
+})
+check('[40.13] ⑬ 图几何给定数字与入度 badge', () => {
+  const c0 = T207_A.nodes[0]
+  assert.equal(tgraph.NODE_R, 24)
+  assert.equal(tgraph.ARROW, 9)
+  assert.equal(tgraph.graphWidth(T207_A.nodes), 584)
+  assert.equal(tgraph.graphHeight(T207_A.nodes), 244)
+  assert.equal(tgraph.graphWidth(T207_B.nodes), 554)
+  assert.equal(tgraph.graphHeight(T207_B.nodes), 234)
+  assert.equal(tgraph.graphMaxWidth(T207_A.nodes), 660)
+  assert.equal(tgraph.graphMaxWidth(T207_B.nodes), 660)
+  assert.deepEqual(tgraph.badgeAt(c0), { cx: 53, cy: 43, r: 9.5 })
+})
+check('[40.14] ⑭ A/B 节点坐标与有向边裁剪、箭头长度一致', () => {
+  const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])
+  for (const [data, picks] of [[T207_A, t207aFull], [T207_B, t207bFull]]) {
+    for (const fr of t207Build({ data, picks })) {
+      const placed = tgraph.layoutNodes(fr.nodes)
+      const byId = new Map(placed.map((node) => [node.id, node]))
+      for (const node of placed) {
+        assert.ok(Number.isFinite(node.cx) && Number.isFinite(node.cy))
+        assert.equal(node.cx, node.x)
+        assert.equal(node.cy, node.y)
+      }
+      for (const edge of fr.edges) {
+        const a = byId.get(edge.from)
+        const b = byId.get(edge.to)
+        const geo = tgraph.edgeGeo(a, b)
+        assert.ok(Math.abs(distance(geo.start, [a.x, a.y]) - 24) < 1e-6)
+        assert.ok(Math.abs(distance(geo.end, [b.x, b.y]) - 24) < 1e-6)
+        assert.ok(Math.abs(distance(geo.end, geo.base) - 9) < 1e-6)
+        assert.deepEqual(geo.head[0], geo.end)
+      }
+    }
+  }
+})
+check('[40.15] ⑮ marks 与 peeled / cycle 状态逐帧一致', () => {
+  for (const [data, picks] of [[T207_A, t207aFull], [T207_B, t207bFull]]) {
+    for (const fr of t207Build({ data, picks })) {
+      const nodeIds = new Set(fr.nodes.map((node) => node.id))
+      const entries = Object.entries(fr.marks)
+      assert.ok(entries.every(([id]) => nodeIds.has(id)))
+      const markedPeeled = entries.filter(([, mark]) => mark === 'ok' || mark === 'active').map(([id]) => id).sort()
+      assert.deepEqual(markedPeeled, [...fr.peeled].sort())
+      const active = entries.filter(([, mark]) => mark === 'active').map(([id]) => id)
+      assert.ok(active.length <= 1)
+      if (fr.peeled.length) assert.deepEqual(active, [fr.peeled.at(-1)])
+      else assert.deepEqual(active, [])
+      const stuck = entries.filter(([, mark]) => mark === 'stuck').map(([id]) => id)
+      if (fr.cycle) assert.deepEqual(stuck.sort(), [...fr.remaining].sort())
+      else assert.deepEqual(stuck, [])
+    }
+  }
+})
+
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

@@ -2,6 +2,7 @@ export const NODE_R = 24
 export const ARROW = 9
 export const MAX_CANVAS = 660
 export const SCALE_CAP = 1.6
+export const WEIGHT_OFFSET = 12
 
 export function graphWidth(nodes) {
   if (!nodes.length) return 0
@@ -27,6 +28,7 @@ export function edgeGeo(a, b) {
   const len = Math.hypot(dx, dy)
   const ux = dx / len
   const uy = dy / len
+  const normal = [-uy, ux]
   const start = [a.x + ux * NODE_R, a.y + uy * NODE_R]
   const end = [b.x - ux * NODE_R, b.y - uy * NODE_R]
   const base = [end[0] - ux * ARROW, end[1] - uy * ARROW]
@@ -34,7 +36,14 @@ export function edgeGeo(a, b) {
   const py = ux * ARROW * 0.55
   const head = [end, [base[0] + px, base[1] + py], [base[0] - px, base[1] - py]]
   const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2]
-  return { start, end, base, head, mid }
+  return { start, end, base, head, mid, normal }
+}
+
+export function weightAt(geo, at = 0.5, side = 1) {
+  return [
+    geo.start[0] + (geo.end[0] - geo.start[0]) * at + geo.normal[0] * side * WEIGHT_OFFSET,
+    geo.start[1] + (geo.end[1] - geo.start[1]) * at + geo.normal[1] * side * WEIGHT_OFFSET,
+  ]
 }
 
 export function badgeAt(node) {

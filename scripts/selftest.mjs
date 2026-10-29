@@ -2876,5 +2876,262 @@ check('[41.16] ⑯ GridCanvas 几何：格 id 与中心点坐标逐帧吻合', (
   }
 })
 
+// —— [42] P10-4-743：带权有向图与 Dijkstra ——
+const {
+  buildFrames: t743Build,
+  checkPick: t743Check,
+  FIXTURE_A: T743_A,
+  FIXTURE_B: T743_B,
+} = await import('../src/demos/graph/network-delay/engine.js')
+const tgeo743 = await import('../src/core/graph-geom.js')
+
+console.log('\n[42] 743 网络延迟时间')
+
+const t743aFull = ['n2', 'n3', 'n4', 'n5']
+const t743bFull = ['n3', 'n4', 'n2']
+
+check('[42.1] ① A 全对 → 8 帧、答案 8、自动取掉 N6', () => {
+  const f = t743Build({ data: T743_A, picks: t743aFull })
+  const last = f.at(-1)
+  assert.equal(f.length, 8)
+  assert.equal(last.done, true)
+  assert.equal(last.answer, 8)
+  assert.equal(last.ask, null)
+  assert.deepEqual(last.candidates, [])
+  assert.equal(last.settled.length, 6)
+  assert.deepEqual(last.folded, ['n6'])
+  assert.equal(last.marks.n6, 'active')
+})
+check('[42.2] ② B 全对 → 6 帧、答案 -1、N6 不可达', () => {
+  const last = t743Build({ data: T743_B, picks: t743bFull }).at(-1)
+  assert.equal(t743Build({ data: T743_B, picks: t743bFull }).length, 6)
+  assert.equal(last.done, true)
+  assert.equal(last.answer, -1)
+  assert.equal(last.ask, null)
+  assert.deepEqual(last.settled, ['n1', 'n3', 'n4', 'n2', 'n5'])
+  assert.deepEqual(last.folded, ['n5'])
+  assert.equal(last.dist.n6, null)
+  assert.deepEqual(last.candidates, [])
+})
+check('[42.3] ③ 帧数公式与决策/结果帧奇偶', () => {
+  const a = t743Build({ data: T743_A, picks: t743aFull })
+  const b = t743Build({ data: T743_B, picks: t743bFull })
+  const mid = t743Build({ data: T743_A, picks: t743aFull.slice(0, 2) })
+  assert.equal(a.length, 2 * t743aFull.length)
+  assert.equal(b.length, 2 * t743bFull.length)
+  assert.equal(mid.length, 5)
+  assert.ok(mid.at(-1).ask)
+  for (const frames of [a, b, mid]) frames.forEach((fr, i) => {
+    if (i % 2 === 0) assert.ok(fr.ask && !fr.done)
+    else assert.equal(fr.ask, null)
+    if (fr.done) assert.equal(i % 2, 1)
+  })
+})
+check('[42.4] ④ 正确序列与 candidates 的距离/下标排序', () => {
+  for (const [data, picks, expected] of [[T743_A, t743aFull, t743aFull], [T743_B, t743bFull, t743bFull]]) {
+    const f = t743Build({ data, picks })
+    assert.deepEqual(f.filter((fr) => fr.ask).map((fr) => fr.ask.correct), expected)
+    for (const fr of f) {
+      const expectedCandidates = [...fr.candidates].sort((a, b) => a.dist - b.dist || Number(a.id.slice(1)) - Number(b.id.slice(1)))
+      assert.deepEqual(fr.candidates, expectedCandidates)
+      if (fr.ask) assert.equal(fr.ask.correct, fr.candidates[0].id)
+    }
+  }
+})
+check('[42.5] ⑤ 每帧 dist 等于按 settled 前缀重算的松弛结果', () => {
+  for (const [data, picks] of [[T743_A, t743aFull], [T743_B, t743bFull]]) {
+    for (const fr of t743Build({ data, picks })) {
+      const expected = Object.fromEntries(fr.nodes.map((node) => [node.id, null]))
+      expected[data.source] = 0
+      for (const id of fr.settled) {
+        for (const edge of fr.edges.filter((item) => item.from === id)) {
+          const next = expected[id] + edge.w
+          if (expected[edge.to] === null || next < expected[edge.to]) expected[edge.to] = next
+        }
+      }
+      assert.deepEqual(fr.dist, expected)
+    }
+  }
+})
+check('[42.6] ⑥ relaxed 只记录成功改小的边，决策帧为空', () => {
+  const a = t743Build({ data: T743_A, picks: t743aFull })
+  const b = t743Build({ data: T743_B, picks: t743bFull })
+  assert.deepEqual(a[1].relaxed, [
+    { id: 'n3', from: null, to: 3, via: 'n2' },
+    { id: 'n6', from: null, to: 10, via: 'n2' },
+  ])
+  assert.deepEqual(a[5].relaxed, [{ id: 'n5', from: 7, to: 5, via: 'n4' }])
+  assert.deepEqual(a[7].relaxed, [{ id: 'n6', from: 10, to: 8, via: 'n5' }])
+  assert.deepEqual(b[3].relaxed, [{ id: 'n5', from: 7, to: 4, via: 'n4' }])
+  assert.deepEqual(b[5].relaxed, [])
+  for (const fr of [...a, ...b].filter((item) => item.ask)) assert.deepEqual(fr.relaxed, [])
+})
+check('[42.7] ⑦ marks 与 settled 状态逐帧一致', () => {
+  for (const [data, picks] of [[T743_A, t743aFull], [T743_B, t743bFull]]) {
+    for (const fr of t743Build({ data, picks })) {
+      assert.deepEqual(Object.keys(fr.marks).sort(), [...fr.settled].sort())
+      const active = Object.entries(fr.marks).filter(([, mark]) => mark === 'active').map(([id]) => id)
+      assert.ok(active.length <= 1)
+      if (fr.settled.length) assert.deepEqual(active, [fr.settled.at(-1)])
+      else assert.deepEqual(active, [])
+      for (const id of fr.settled.slice(0, -1)) assert.equal(fr.marks[id], 'ok')
+      for (const node of fr.nodes.filter((item) => !item.settled)) assert.equal(fr.marks[node.id], undefined)
+    }
+  }
+})
+check('[42.8] ⑧ 决策帧可点全部节点，其余帧不可点', () => {
+  for (const fr of t743Build({ data: T743_A, picks: t743aFull })) {
+    if (fr.ask) assert.deepEqual(fr.clickable, fr.nodes.map((node) => node.id))
+    else assert.deepEqual(fr.clickable, [])
+  }
+})
+check('[42.9] ⑨ 两组同距候选均按下标小的排前', () => {
+  const a = t743Build({ data: T743_A, picks: t743aFull })
+  const b = t743Build({ data: T743_B, picks: t743bFull })
+  assert.deepEqual(a[0].candidates, [{ id: 'n2', dist: 1 }, { id: 'n4', dist: 3 }])
+  assert.deepEqual(a[2].candidates, [{ id: 'n3', dist: 3 }, { id: 'n4', dist: 3 }, { id: 'n6', dist: 10 }])
+  assert.deepEqual(b[4].candidates, [{ id: 'n2', dist: 4 }, { id: 'n5', dist: 4 }])
+})
+check('[42.10] ⑩ 终局答案与 A 终局 caption', () => {
+  const a = t743Build({ data: T743_A, picks: t743aFull }).at(-1)
+  const b = t743Build({ data: T743_B, picks: t743bFull }).at(-1)
+  assert.equal(a.dist.n6, 8)
+  assert.equal(a.answer, Math.max(...Object.values(a.dist)))
+  assert.equal(b.dist.n6, null)
+  assert.equal(b.answer, -1)
+  assert.equal(a.caption, '定型 N5：N6 10 → 8。 候选只剩 N6，自动取掉。 全部 6 个点都定型了，最远的是 N6，距离 8 —— 743 的答案是 8。')
+})
+check('[42.11] ⑪ 六帧 caption 与四类 hint 逐字锁定', () => {
+  const a = t743Build({ data: T743_A, picks: t743aFull })
+  const b = t743Build({ data: T743_B, picks: t743bFull })
+  assert.equal(a[0].caption, '起点 N1 距离 0，已定型；它的出边给出 N2=1、N4=3。下一步取哪个点由你判断。')
+  assert.equal(a[1].caption, '定型 N2：N3 ∞ → 3，N6 ∞ → 10。')
+  assert.equal(a[2].caption, '已定型 2 / 6，候选还剩 3 个。轮到你判断下一步。')
+  assert.equal(a[5].caption, '定型 N4：N5 7 → 5。')
+  assert.equal(a[7].caption, '定型 N5：N6 10 → 8。 候选只剩 N6，自动取掉。 全部 6 个点都定型了，最远的是 N6，距离 8 —— 743 的答案是 8。')
+  assert.equal(b[5].caption, '定型 N2：没有能改小的出边。 候选只剩 N5，自动取掉。 待定点空了，N6 的距离还是 ∞ —— 从起点走不到，743 的答案是 -1。')
+  assert.equal(a[0].hint, '取距离最小的那个；距离相同取下标小的。')
+  assert.equal(a[1].hint, '下一步还是从待定点里取距离最小的。')
+  assert.equal(a[7].hint, '每个点都定型了 —— 最大距离就是答案。')
+  assert.equal(b[5].hint, '还有点的距离是 ∞ —— 从起点走不到，答案是 −1。')
+})
+check('[42.12] ⑫ checkPick 十种场景与正确选择文案', () => {
+  const a = t743Build({ data: T743_A, picks: t743aFull })
+  const b = t743Build({ data: T743_B, picks: t743bFull })
+  const cases = [
+    [a[0], 'n4', 'N4 的距离是 3，N2 是 1 —— 取距离最小的。'],
+    [a[0], 'n1', 'N1 已经定型了 —— 每个点只取一次'],
+    [a[0], 'n3', 'N3 的距离还是 ∞：从起点还没走到它，它不在候选里。'],
+    [a[2], 'n4', 'N4 和 N3 都是距离 3，同一距离按下标小的 —— N3 在前。'],
+    [a[6], 'n6', 'N6 的距离是 10，N5 是 5 —— 取距离最小的。'],
+    [b[4], 'n5', 'N5 和 N2 都是距离 4，同一距离按下标小的 —— N2 在前。'],
+    [b[0], 'n6', 'N6 的距离还是 ∞：从起点还没走到它，它不在候选里。'],
+    [a[0], 'zz', '没有这个点：zz'],
+    [a[1], 'n3', '现在没有要你决定的点。'],
+    [a[7], 'n5', '已经结束了，没有下一步要判断。'],
+  ]
+  for (const [frame, pick, message] of cases) assert.deepEqual(t743Check(frame, pick), { ok: false, message })
+  assert.deepEqual(t743Check(a[0], 'n2'), { ok: true, message: '' })
+  assert.deepEqual(t743Check(b[0], 'n3'), { ok: true, message: '' })
+  assert.equal(a[0].ask.prompt, '下一个取哪个点？点图上的节点。')
+})
+check('[42.13] ⑬ 三种退化图只出一帧、不提问', () => {
+  const cases = [
+    [{ source: 'n1', nodes: [{ id: 'n1', label: 'N1', x: 70, y: 140 }], edges: [] }, 0, '图里只有 1 个点，起点就是终点 —— 没有要判断的，距离 0，743 的答案是 0。'],
+    [{ source: 'n1', nodes: [{ id: 'n1', label: 'N1', x: 70, y: 140 }, { id: 'n2', label: 'N2', x: 250, y: 140 }, { id: 'n3', label: 'N3', x: 430, y: 140 }], edges: [{ from: 'n2', to: 'n3', w: 1 }] }, -1, '起点 N1 距离 0，但它没有出边；N2、N3 的距离都是 ∞ —— 没有可判断的，从起点走不到，743 的答案是 -1。'],
+    [{ source: 'n1', nodes: [{ id: 'n1', label: 'N1', x: 70, y: 140 }, { id: 'n2', label: 'N2', x: 250, y: 140 }], edges: [{ from: 'n1', to: 'n2', w: 5 }] }, 5, '起点 N1 距离 0，已定型；它的出边给出 N2=5。往后每一步都只剩 1 个候选，没有要判断的。全部 2 个点都定型了，最远的是 N2，距离 5 —— 743 的答案是 5。'],
+  ]
+  for (const [data, answer, caption] of cases) {
+    const f = t743Build({ data })
+    assert.equal(f.length, 1)
+    assert.equal(f[0].ask, null)
+    assert.deepEqual(f[0].clickable, [])
+    assert.equal(f[0].answer, answer)
+    assert.equal(f[0].caption, caption)
+  }
+})
+check('[42.14] ⑭ 错选静默跳过，帧序确定且 buildFrames 纯函数', () => {
+  assert.equal(t743Build({ data: T743_A, picks: ['n2', 'n3'] }).length, 5)
+  assert.ok(t743Build({ data: T743_A, picks: ['n2', 'n3'] }).at(-1).ask)
+  assert.equal(t743Build({ data: T743_A, picks: ['n2', 'n4'] }).length, 3)
+  assert.equal(t743Build({ data: T743_A, picks: ['n4'] }).length, 1)
+  assert.equal(t743Build({ data: T743_A, picks: ['n2', 'n3', 'n3'] }).length, t743Build({ data: T743_A, picks: ['n2', 'n3'] }).length)
+  assert.equal(JSON.stringify(t743Build({ data: T743_A, picks: t743aFull })), JSON.stringify(t743Build({ data: T743_A, picks: t743aFull })))
+})
+check('[42.15] ⑮ weight geometry 增量与 207 回归', () => {
+  const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-3, `${actual} != ${expected}`)
+  assert.equal(tgeo743.WEIGHT_OFFSET, 12)
+  const n1 = { x: 70, y: 140 }
+  const n2 = { x: 250, y: 60 }
+  const geo = tgeo743.edgeGeo(n1, n2)
+  const length = Math.hypot(180, -80)
+  const ux = 180 / length
+  const uy = -80 / length
+  const expected = {
+    start: [70 + ux * 24, 140 + uy * 24],
+    end: [250 - ux * 24, 60 - uy * 24],
+    base: [250 - ux * 33, 60 - uy * 33],
+    normal: [-uy, ux],
+  }
+  for (const key of ['start', 'end', 'base', 'normal']) geo[key].forEach((value, i) => near(value, expected[key][i]))
+  assert.deepEqual(geo.mid, [160, 100])
+  for (const [actual, rounded] of [
+    [geo.start, [91.931, 130.253]],
+    [geo.end, [228.069, 69.747]],
+    [geo.base, [219.844, 73.403]],
+    [geo.normal, [0.406, 0.914]],
+  ]) actual.forEach((value, i) => near(value, rounded[i]))
+  for (let i = 0; i < 3; i += 1) geo.head[i].forEach((value, j) => {
+    const point = i === 0 ? geo.end : [geo.base[0] + (i === 1 ? 1 : -1) * -uy * 9 * 0.55, geo.base[1] + (i === 1 ? 1 : -1) * ux * 9 * 0.55]
+    near(value, point[j])
+  })
+  const unit = Math.hypot(...geo.normal)
+  near(unit, 1)
+  near(geo.normal[0] * ux + geo.normal[1] * uy, 0)
+  const weight = tgeo743.weightAt(geo)
+  near(weight[0], 164.874)
+  near(weight[1], 110.966)
+  const oppositeSide = tgeo743.weightAt(geo, 0.5, -1)
+  near(oppositeSide[0], 155.126)
+  near(oppositeSide[1], 89.034)
+  const angled = tgeo743.weightAt(tgeo743.edgeGeo(n1, { x: 430, y: 60 }), 0.35, 1)
+  near(angled[0], 205.632)
+  near(angled[1], 122.152)
+
+  const regression = tgeo743.edgeGeo({ x: 70, y: 60 }, { x: 230, y: 130 })
+  for (const [actual, values] of [
+    [regression.start, [91.988, 69.62]],
+    [regression.end, [208.012, 120.38]],
+    [regression.base, [199.767, 116.773]],
+    [regression.mid, [150, 95]],
+  ]) actual.forEach((value, i) => near(value, values[i]))
+  assert.deepEqual(regression.mid, [150, 95])
+})
+check('[42.16] ⑯ frame nodes/edges 集成数据与画布尺寸', () => {
+  const f = t743Build({ data: T743_A, picks: t743aFull })
+  const coords = { n1: [70, 140], n2: [250, 60], n3: [250, 230], n4: [430, 60], n5: [430, 230], n6: [590, 145] }
+  for (const fr of f) {
+    for (const node of fr.nodes) {
+      assert.deepEqual([node.x, node.y], coords[node.id])
+      assert.equal(node.badge, node.dist === null ? '∞' : String(node.dist))
+      assert.ok(Number.isFinite(node.x) && Number.isFinite(node.y))
+    }
+    for (const edge of fr.edges) {
+      assert.equal(edge.id, `${edge.from}>${edge.to}`)
+      assert.ok(fr.nodes.some((node) => node.id === edge.from))
+      assert.ok(fr.nodes.some((node) => node.id === edge.to))
+      assert.ok(Number.isFinite(edge.at) && Number.isFinite(edge.side))
+    }
+  }
+  assert.equal(f[0].edges.find((edge) => edge.id === 'n2>n3').at, 0.5)
+  assert.equal(f[0].edges.find((edge) => edge.id === 'n2>n3').side, 1)
+  assert.equal(f[0].edges.find((edge) => edge.id === 'n1>n2').at, 0.5)
+  assert.equal(f[0].edges.find((edge) => edge.id === 'n1>n2').side, -1)
+  assert.equal(tgeo743.graphWidth(T743_A.nodes), 614)
+  assert.equal(tgeo743.graphHeight(T743_A.nodes), 254)
+  assert.equal(tgeo743.graphMaxWidth(T743_A.nodes), 660)
+  assert.deepEqual(tgeo743.badgeAt(T743_A.nodes[0]), { cx: 53, cy: 123, r: 9.5 })
+})
+
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

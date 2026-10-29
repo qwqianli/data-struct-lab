@@ -18,6 +18,7 @@ import TopKFrequentDemo from '../demos/heap/top-k-frequent/Demo.vue'
 import MedianFinderDemo from '../demos/heap/median-finder/Demo.vue'
 import NumIslandsDemo from '../demos/graph/num-islands/Demo.vue'
 import CourseScheduleDemo from '../demos/graph/course-schedule/Demo.vue'
+import NetworkDelayDemo from '../demos/graph/network-delay/Demo.vue'
 import RottenOrangesDemo from '../demos/graph/rotten-oranges/Demo.vue'
 
 /**
@@ -877,7 +878,14 @@ export const CATEGORIES = [
         slug: 'network-delay-time',
         difficulty: '中',
         blurb: '每次取当前最近的节点，再松弛它的邻居',
-        status: 'planned',
+        status: 'ready',
+        component: NetworkDelayDemo,
+        related: [
+          { no: 787, slug: 'cheapest-flights-within-k-stops', title: 'K 站中转内最便宜的航班', difficulty: '中', why: '同样是在带权图上压距离，但多了一个「最多中转几次」的维数' },
+          { no: 1631, slug: 'path-with-minimum-effort', title: '最小体力消耗路径', difficulty: '中', why: '最短路换成「路径上最大边最小」，取点那一步照旧' },
+          { no: 1976, slug: 'number-of-ways-to-arrive-at-destination', title: '到达目的地的方案数', difficulty: '中', why: 'Dijkstra 定型的那一刻顺手统计路径条数' },
+          { no: 1514, slug: 'path-with-maximum-probability', title: '概率最大的路径', difficulty: '中', why: '把「距离最小」换成「概率最大」，其余一字不改' },
+        ],
       },
     ],
   },

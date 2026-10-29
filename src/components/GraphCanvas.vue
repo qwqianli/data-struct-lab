@@ -9,6 +9,7 @@ import {
   graphMaxWidth,
   graphWidth,
   layoutNodes,
+  weightAt,
 } from '../core/graph-geom.js'
 
 const props = defineProps({
@@ -25,14 +26,14 @@ const maxWidth = computed(() => graphMaxWidth(props.nodes))
 const placedNodes = computed(() => layoutNodes(props.nodes))
 const edgeShapes = computed(() => {
   const byId = new Map(placedNodes.value.map((node) => [node.id, node]))
-  return props.edges.map((edge) => ({
-    ...edge,
-    geo: edgeGeo(byId.get(edge.from), byId.get(edge.to)),
-  }))
+  return props.edges.map((edge) => {
+    const geo = edgeGeo(byId.get(edge.from), byId.get(edge.to))
+    return { ...edge, geo, weight: edge.w == null ? null : weightAt(geo, edge.at, edge.side) }
+  })
 })
 const badges = computed(() => placedNodes.value
-  .filter((node) => node.peeled === false)
-  .map((node) => ({ ...badgeAt(node), id: node.id, inDeg: node.inDeg })))
+  .filter((node) => node.badge != null || node.peeled === false)
+  .map((node) => ({ ...badgeAt(node), id: node.id, text: node.badge ?? node.inDeg })))
 
 function nodeClass(node) {
   const mark = props.marks[node.id]
@@ -59,6 +60,7 @@ function onClickNode(id) {
         class="edge-line"
       />
       <polygon :points="edge.geo.head.map((point) => point.join(',')).join(' ')" class="edge-head" />
+      <text v-if="edge.weight" :x="edge.weight[0]" :y="edge.weight[1]" text-anchor="middle" dominant-baseline="central" class="edge-weight">{{ edge.w }}</text>
     </g>
 
     <g
@@ -82,7 +84,7 @@ function onClickNode(id) {
 
     <g v-for="badge in badges" :key="`${badge.id}-badge`" class="badge">
       <circle :cx="badge.cx" :cy="badge.cy" :r="badge.r" />
-      <text :x="badge.cx" :y="badge.cy" text-anchor="middle" dominant-baseline="central">{{ badge.inDeg }}</text>
+      <text :x="badge.cx" :y="badge.cy" text-anchor="middle" dominant-baseline="central">{{ badge.text }}</text>
     </g>
   </svg>
 </template>
@@ -102,6 +104,8 @@ function onClickNode(id) {
 .edge-head {
   fill: var(--line);
 }
+
+.edge-weight { fill: var(--text-dim); font-family: var(--font-mono); font-size: 10px; pointer-events: none; user-select: none; }
 
 .node {
   cursor: default;

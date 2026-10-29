@@ -2677,6 +2677,15 @@ check('[40.15] ⑮ marks 与 peeled / cycle 状态逐帧一致', () => {
     }
   }
 })
+check('[40.16] thawed 只属于发生了剥点的帧，决策帧与停滞帧必须为空', () => {
+  for (const [data, picks] of [[T207_A, t207aFull], [T207_B, t207bFull]]) {
+    const f = t207Build({ data, picks })
+    f.forEach((fr, i) => {
+      const peeledThisFrame = i > 0 && fr.peeled.length !== f[i - 1].peeled.length
+      if (!peeledThisFrame) assert.deepEqual(fr.thawed, [])
+    })
+  }
+})
 
 console.log(`\n最终汇总：${failures.length === 0 ? '全部通过' : '有失败'}：${passed} passed, ${failures.length} failed\n`)
 if (failures.length) process.exit(1)

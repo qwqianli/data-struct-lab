@@ -207,6 +207,7 @@ export function buildFrames({ data = DEFAULT_DATA, picks = [] } = {}) {
       hint: RESULT_HINT,
     })
     frames.push(frame)
+    state.thawed = []
 
     const ready = readyOf(state)
     if (!ready.length) {
